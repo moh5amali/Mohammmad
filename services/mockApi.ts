@@ -1,23 +1,20 @@
-import { User, UserRole, InvestmentPackage, Transaction, TransactionType, TransactionStatus, DepositMethod, WithdrawalMethod } from '../types';
+import { User, UserRole, InvestmentPackage, Transaction, TransactionType, TransactionStatus, DepositMethod, WithdrawalMethod, PasswordResetRequest } from '../types';
 
 // Utility to generate unique IDs
 const generateId = () => Math.random().toString(36).substring(2, 11);
-const generateToken = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const DB_KEY = 'investmentAppDB';
 const LOGGED_IN_USER_ID_KEY = 'loggedInUserId';
 
-// Fix: Define an interface for the database structure to ensure correct types.
 interface AppDB {
     users: User[];
     packages: InvestmentPackage[];
     transactions: Transaction[];
     depositMethods: DepositMethod[];
     withdrawalMethods: WithdrawalMethod[];
+    passwordResetRequests: PasswordResetRequest[];
 }
 
-// Default data if DB is empty
-// Fix: Explicitly set return type to enforce the AppDB structure.
 const getDefaultData = (): AppDB => {
     const user1Id = 'user-1';
     const user2Id = 'user-2';
@@ -47,11 +44,13 @@ const getDefaultData = (): AppDB => {
         withdrawalMethods: [
             { id: 'wm-1', name: 'USDT (TRC20)'},
             { id: 'wm-2', name: 'Bank Transfer'},
+        ],
+        passwordResetRequests: [
+             { id: generateId(), userId: user2Id, username: 'fatima', email: 'user2@example.com', whatsappNumber: '9876543210', status: 'PENDING', date: new Date().toISOString() }
         ]
     };
 };
 
-// Fix: Use the explicit AppDB type for the database variable.
 let DB: AppDB;
 
 const loadDB = () => {
@@ -72,7 +71,7 @@ const saveDB = () => {
     }
 };
 
-loadDB(); // Load DB on module initialization
+loadDB();
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -89,9 +88,6 @@ export const register = async (userData: Pick<User, 'username' | 'name' | 'email
     if (DB.users.some(u => u.email === userData.email)) throw new Error('البريد الإلكتروني مسجل بالفعل.');
     if (DB.users.some(u => u.username === userData.username)) throw new Error('اسم المستخدم مسجل بالفعل.');
 
-    const verificationToken = generateToken();
-    const verificationTokenExpires = new Date(Date.now() + 3600000).toISOString(); // 1 hour expiry
-
     const newUser: User = {
         id: generateId(),
         role: UserRole.USER,
@@ -99,21 +95,12 @@ export const register = async (userData: Pick<User, 'username' | 'name' | 'email
         profitBalance: 0,
         investedAmount: 0,
         referralCode: userData.username.toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase(),
-        isEmailVerified: false,
-        verificationToken,
-        verificationTokenExpires,
+        isEmailVerified: true, // Auto-verify users
         ...userData,
     };
     
     DB.users.push(newUser);
     saveDB();
-
-    console.log(`--- SIMULATING EMAIL ---`);
-    console.log(`To: ${newUser.email}`);
-    console.log(`Subject: Verify Your Account`);
-    console.log(`Your verification code is: ${verificationToken}`);
-    console.log(`------------------------`);
-
     return newUser;
 };
 
@@ -126,51 +113,28 @@ export const login = async (usernameOrEmail: string, password?: string): Promise
     return user;
 };
 
-
-export const verifyEmail = async (userId: string, token: string): Promise<void> => {
+export const requestPasswordReset = async (usernameOrEmail: string, whatsappNumber: string): Promise<void> => {
     await delay(500);
-    const user = DB.users.find(u => u.id === userId);
-    if (!user) throw new Error("المستخدم غير موجود.");
-    if (user.verificationToken !== token) throw new Error("رمز التحقق غير صالح.");
-    if (new Date() > new Date(user.verificationTokenExpires!)) throw new Error("انتهت صلاحية رمز التحقق.");
-
-    user.isEmailVerified = true;
-    user.verificationToken = undefined;
-    user.verificationTokenExpires = undefined;
-    saveDB();
-};
-
-export const requestPasswordReset = async (email: string): Promise<void> => {
-    await delay(500);
-    const user = DB.users.find(u => u.email === email);
-    if (user) {
-        const passwordResetToken = generateToken();
-        const passwordResetTokenExpires = new Date(Date.now() + 3600000).toISOString(); // 1 hour
-        user.passwordResetToken = passwordResetToken;
-        user.passwordResetTokenExpires = passwordResetTokenExpires;
-        saveDB();
-
-        console.log(`--- SIMULATING PASSWORD RESET EMAIL ---`);
-        console.log(`To: ${user.email}`);
-        console.log(`Your password reset code is: ${passwordResetToken}`);
-        console.log(`-------------------------------------`);
+    const user = DB.users.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
+    if (!user) {
+        // Don't throw an error for security, but we can log it for debug
+        console.log(`Password reset request for non-existent user: ${usernameOrEmail}`);
+        return;
     }
-    // Don't throw an error if user not found, for security reasons.
-};
-
-
-export const resetPassword = async (token: string, newPassword?: string): Promise<void> => {
-    await delay(500);
-    const user = DB.users.find(u => u.passwordResetToken === token);
-    if (!user) throw new Error("رمز إعادة التعيين غير صالح.");
-    if (new Date() > new Date(user.passwordResetTokenExpires!)) throw new Error("انتهت صلاحية رمز إعادة التعيين.");
-
-    user.password = newPassword;
-    user.passwordResetToken = undefined;
-    user.passwordResetTokenExpires = undefined;
+    
+    const newRequest: PasswordResetRequest = {
+        id: generateId(),
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        whatsappNumber,
+        status: 'PENDING',
+        date: new Date().toISOString()
+    };
+    
+    DB.passwordResetRequests.unshift(newRequest);
     saveDB();
 };
-
 
 export const setLoggedInUser = (userId: string) => {
     localStorage.setItem(LOGGED_IN_USER_ID_KEY, userId);
@@ -313,6 +277,23 @@ export const getTransactions = async (): Promise<Transaction[]> => {
     await delay(200);
     return [...DB.transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
+
+export const getPasswordResetRequests = async (): Promise<PasswordResetRequest[]> => {
+    await delay(200);
+    return [...DB.passwordResetRequests]
+        .filter(r => r.status === 'PENDING')
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
+export const resolvePasswordResetRequest = async (requestId: string): Promise<void> => {
+    await delay(300);
+    const request = DB.passwordResetRequests.find(r => r.id === requestId);
+    if (request) {
+        request.status = 'RESOLVED';
+        saveDB();
+    }
+};
+
 
 export const approveDeposit = async (transactionId: string): Promise<void> => {
     await delay(300);

@@ -31,12 +31,7 @@ export interface User {
     referralCode: string;
     referredBy?: string;
     lastWithdrawal?: string;
-    
-    isEmailVerified: boolean;
-    verificationToken?: string;
-    verificationTokenExpires?: string; // ISO string
-    passwordResetToken?: string;
-    passwordResetTokenExpires?: string; // ISO string
+    isEmailVerified: boolean; // Will default to true now
 }
 
 export interface InvestmentPackage {
@@ -70,4 +65,14 @@ export interface DepositMethod {
 export interface WithdrawalMethod {
     id: string;
     name: string;
+}
+
+export interface PasswordResetRequest {
+    id: string;
+    userId: string;
+    username: string;
+    email: string;
+    whatsappNumber: string;
+    status: 'PENDING' | 'RESOLVED';
+    date: string; // ISO string
 }

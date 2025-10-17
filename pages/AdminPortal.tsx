@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { InvestmentPackage, Transaction, User, DepositMethod, TransactionStatus, TransactionType, WithdrawalMethod } from '../types';
+import { InvestmentPackage, Transaction, User, DepositMethod, TransactionStatus, TransactionType, WithdrawalMethod, PasswordResetRequest } from '../types';
 import * as api from '../services/mockApi';
 import { Card, Button, Modal, StatCard, DollarSignIcon, UsersIcon, ArrowUpIcon, ArrowDownIcon, CheckCircleIcon, XCircleIcon } from '../components/SharedComponents';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -209,6 +209,70 @@ const WithdrawalRequests: React.FC<{ onAction: () => void }> = ({ onAction }) =>
     );
 };
 
+const PasswordResetRequests: React.FC<{ onAction: () => void }> = ({ onAction }) => {
+    const [requests, setRequests] = useState<PasswordResetRequest[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = () => {
+        setLoading(true);
+        api.getPasswordResetRequests()
+            .then(setRequests)
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const handleResolve = async (id: string) => {
+        try {
+            await api.resolvePasswordResetRequest(id);
+            fetchData(); // Refresh list
+            onAction(); // Refresh other admin data if needed
+        } catch (error) {
+            console.error("Failed to resolve request:", error);
+            alert("فشل الإجراء.");
+        }
+    };
+    
+    return (
+        <div className="space-y-6 animate-fade-in">
+            <h2 className="text-3xl font-bold text-text-main">طلبات إعادة تعيين كلمة المرور</h2>
+            <Card>
+                {loading ? <p>جاري تحميل الطلبات...</p> : requests.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-right text-text-secondary">
+                            <thead className="text-xs text-text-main uppercase bg-secondary">
+                                <tr>
+                                    <th scope="col" className="px-6 py-3">اسم المستخدم</th>
+                                    <th scope="col" className="px-6 py-3">البريد الإلكتروني</th>
+                                    <th scope="col" className="px-6 py-3">رقم الواتساب</th>
+                                    <th scope="col" className="px-6 py-3">تاريخ الطلب</th>
+                                    <th scope="col" className="px-6 py-3">الإجراء</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {requests.map(req => (
+                                    <tr key={req.id} className="border-b border-gray-700 hover:bg-secondary">
+                                        <td className="px-6 py-4 font-medium text-text-main">{req.username}</td>
+                                        <td className="px-6 py-4">{req.email}</td>
+                                        <td className="px-6 py-4 font-mono text-left">{req.whatsappNumber}</td>
+                                        <td className="px-6 py-4">{new Date(req.date).toLocaleString('ar-EG')}</td>
+                                        <td className="px-6 py-4">
+                                            <Button variant="primary" onClick={() => handleResolve(req.id)}>تم الحل</Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : <p>لا توجد طلبات معلقة حالياً.</p>}
+            </Card>
+        </div>
+    );
+};
+
+
 const ManagePackages: React.FC = () => {
     const [packages, setPackages] = useState<InvestmentPackage[]>([]);
     const [isModalOpen, setModalOpen] = useState(false);
@@ -373,6 +437,7 @@ export const AdminPortal: React.FC = () => {
         { id: 'dashboard', label: 'لوحة التحكم' },
         { id: 'deposits', label: 'طلبات الإيداع' },
         { id: 'withdrawals', label: 'طلبات السحب' },
+        { id: 'passwordResets', label: 'إعادة تعيين كلمة المرور' },
         { id: 'packages', label: 'إدارة الباقات' },
         { id: 'depositMethods', label: 'طرق الإيداع' },
         { id: 'withdrawalMethods', label: 'طرق السحب' },
@@ -381,7 +446,7 @@ export const AdminPortal: React.FC = () => {
     return (
         <div>
             <div className="mb-6 border-b border-gray-700">
-                <nav className="-mb-px flex space-x-2 md:space-x-6 overflow-x-auto" aria-label="Tabs">
+                <nav className="-mb-px flex space-x-2 md:space-x-4 overflow-x-auto" aria-label="Tabs">
                     {tabs.map(tab => (
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                             className={`${activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-main hover:border-gray-500'}
@@ -397,6 +462,7 @@ export const AdminPortal: React.FC = () => {
                 {activeTab === 'dashboard' && <AdminDashboard />}
                 {activeTab === 'deposits' && <DepositRequests onAction={forceRefresh}/>}
                 {activeTab === 'withdrawals' && <WithdrawalRequests onAction={forceRefresh} />}
+                {activeTab === 'passwordResets' && <PasswordResetRequests onAction={forceRefresh} />}
                 {activeTab === 'packages' && <ManagePackages />}
                 {activeTab === 'depositMethods' && <ManageDepositMethods />}
                 {activeTab === 'withdrawalMethods' && <ManageWithdrawalMethods />}
