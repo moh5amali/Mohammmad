@@ -44,6 +44,12 @@ export const XCircleIcon: React.FC<{ className?: string }> = ({ className }) => 
   </svg>
 );
 
+export const LogoutIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+    </svg>
+);
+
 
 // --- Components ---
 
@@ -94,7 +100,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center animate-fade-in">
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center animate-fade-in" onClick={onClose}>
             <div className="bg-secondary-light rounded-lg shadow-2xl w-full max-w-md m-4 animate-slide-in-up" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-700">
                     <h3 className="text-xl font-bold text-text-main">{title}</h3>

@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { InvestmentPackage, Transaction, User, DepositMethod, UserRole, TransactionType, TransactionStatus } from '../types';
+import { InvestmentPackage, Transaction, User, DepositMethod, UserRole, TransactionType, TransactionStatus, WithdrawalMethod } from '../types';
 import * as api from '../services/mockApi';
-import { Card, Button, Modal, StatCard, DollarSignIcon, ChartBarIcon, ArrowUpIcon, ArrowDownIcon } from '../components/SharedComponents';
+// FIX: Imported UsersIcon component.
+import { Card, Button, Modal, StatCard, DollarSignIcon, ChartBarIcon, ArrowUpIcon, ArrowDownIcon, UsersIcon } from '../components/SharedComponents';
 
 const translateTransactionType = (type: TransactionType) => {
     switch (type) {
@@ -11,8 +12,6 @@ const translateTransactionType = (type: TransactionType) => {
         case TransactionType.INVESTMENT: return 'استثمار';
         case TransactionType.PROFIT: return 'ربح';
         case TransactionType.REFERRAL_BONUS: return 'مكافأة إحالة';
-        // FIX: The default case caused a type error because `type` is `never` when all enum cases are handled.
-        // Returning `type` directly is safe, as `never` is assignable to the function's return type, and provides a reasonable fallback.
         default: return type;
     }
 };
@@ -27,37 +26,42 @@ const translateTransactionStatus = (status: TransactionStatus) => {
 };
 
 const UserDashboard: React.FC<{ user: User | null; onAction: () => void }> = ({ user, onAction }) => {
-    const [data, setData] = useState<{ user: User, totalProfit: number, transactions: Transaction[] } | null>(null);
+    const [data, setData] = useState<{ user: User, transactions: Transaction[] } | null>(null);
     const [loading, setLoading] = useState(true);
     const [isDepositModalOpen, setDepositModalOpen] = useState(false);
     const [isWithdrawModalOpen, setWithdrawModalOpen] = useState(false);
 
-    useEffect(() => {
+    const fetchDashboardData = () => {
         if (user) {
             setLoading(true);
             api.getDashboardData(user.id)
                 .then(setData)
                 .finally(() => setLoading(false));
         }
+    }
+
+    useEffect(() => {
+        fetchDashboardData();
     }, [user]);
     
     if (loading || !data) return <div className="text-center p-10 text-text-main">جاري تحميل بيانات المستخدم...</div>;
 
-    const { user: userData, totalProfit, transactions } = data;
+    const { user: userData, transactions } = data;
 
     return (
         <div className="space-y-6 animate-fade-in">
             <h2 className="text-3xl font-bold text-text-main">مرحباً، {userData.name}!</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatCard title="الرصيد الحالي" value={`$${userData.balance.toFixed(2)}`} icon={<DollarSignIcon className="w-6 h-6 text-white"/>} colorClass="bg-blue-500" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard title="الرصيد الإجمالي" value={`$${userData.balance.toFixed(2)}`} icon={<DollarSignIcon className="w-6 h-6 text-white"/>} colorClass="bg-blue-500" />
+                <StatCard title="رصيد الأرباح" value={`$${userData.profitBalance.toFixed(2)}`} icon={<ArrowUpIcon className="w-6 h-6 text-white"/>} colorClass="bg-green-500" />
                 <StatCard title="إجمالي الاستثمار" value={`$${userData.investedAmount.toFixed(2)}`} icon={<ChartBarIcon className="w-6 h-6 text-white"/>} colorClass="bg-primary" />
-                <StatCard title="الأرباح المقدرة" value={`$${totalProfit.toFixed(2)}`} icon={<ArrowUpIcon className="w-6 h-6 text-white"/>} colorClass="bg-yellow-500" />
+                <StatCard title="كود الإحالة" value={userData.referralCode} icon={<UsersIcon className="w-6 h-6 text-white"/>} colorClass="bg-yellow-500" />
             </div>
 
             <div className="flex gap-4">
                  <Button onClick={() => setDepositModalOpen(true)}>إيداع USDT</Button>
-                 <Button onClick={() => setWithdrawModalOpen(true)} variant="secondary">سحب</Button>
+                 <Button onClick={() => setWithdrawModalOpen(true)} variant="secondary">سحب الأرباح</Button>
             </div>
             
             <Card>
@@ -69,12 +73,10 @@ const UserDashboard: React.FC<{ user: User | null; onAction: () => void }> = ({ 
                                 <p className="font-semibold text-text-main">{translateTransactionType(t.type)}</p>
                                 <p className="text-sm text-text-secondary">{new Date(t.date).toLocaleString('ar-EG')}</p>
                             </div>
-                            <div className="text-left">
-                                {/* FIX: Use enums for transaction type comparison for better type safety. */}
-                                <p className={`font-bold ${t.type === TransactionType.DEPOSIT || t.type === TransactionType.PROFIT ? 'text-green-400' : 'text-red-400'}`}>
-                                    {t.type === TransactionType.DEPOSIT || t.type === TransactionType.PROFIT ? '+' : '-'}${t.amount.toFixed(2)}
+                            <div className="text-right">
+                                <p className={`font-bold ${[TransactionType.DEPOSIT, TransactionType.PROFIT, TransactionType.REFERRAL_BONUS].includes(t.type) ? 'text-green-400' : 'text-red-400'}`}>
+                                    {[TransactionType.DEPOSIT, TransactionType.PROFIT, TransactionType.REFERRAL_BONUS].includes(t.type) ? '+' : '-'}${t.amount.toFixed(2)}
                                 </p>
-                                {/* FIX: Use enums for transaction status comparison for better type safety. */}
                                 <p className={`text-xs font-semibold ${t.status === TransactionStatus.COMPLETED ? 'text-green-400' : t.status === TransactionStatus.PENDING ? 'text-yellow-400' : 'text-red-400'}`}>{translateTransactionStatus(t.status)}</p>
                             </div>
                         </div>
@@ -82,8 +84,8 @@ const UserDashboard: React.FC<{ user: User | null; onAction: () => void }> = ({ 
                 </div>
             </Card>
 
-            <DepositModal isOpen={isDepositModalOpen} onClose={() => setDepositModalOpen(false)} userId={user!.id} onDepositSuccess={() => { onAction(); api.getDashboardData(user!.id).then(setData); }}/>
-            <WithdrawModal isOpen={isWithdrawModalOpen} onClose={() => setWithdrawModalOpen(false)} />
+            <DepositModal isOpen={isDepositModalOpen} onClose={() => setDepositModalOpen(false)} userId={user!.id} onDepositSuccess={() => { onAction(); fetchDashboardData(); }}/>
+            {user && <WithdrawModal isOpen={isWithdrawModalOpen} onClose={() => setWithdrawModalOpen(false)} user={user} onWithdrawSuccess={() => { onAction(); fetchDashboardData(); }}/>}
         </div>
     );
 };
@@ -107,7 +109,7 @@ const InvestmentPlans: React.FC<{ user: User | null; onInvest: () => void }> = (
             await api.investInPackage(user.id, selectedPackage.id, investmentAmount);
             setSelectedPackage(null);
             setInvestmentAmount(0);
-            onInvest(); // Refresh parent data
+            onInvest();
         } catch (e: any) {
             setError(e.toString());
         } finally {
@@ -138,7 +140,7 @@ const InvestmentPlans: React.FC<{ user: User | null; onInvest: () => void }> = (
             </div>
             <Modal isOpen={!!selectedPackage} onClose={() => setSelectedPackage(null)} title={`استثمر في ${selectedPackage?.name}`}>
                  <div className="space-y-4">
-                    <p className="text-text-secondary">رصيدك: ${user?.balance.toFixed(2)}</p>
+                    <p className="text-text-secondary">رصيدك المتاح للاستثمار: ${user?.balance.toFixed(2)}</p>
                     <div>
                         <label htmlFor="amount" className="block text-sm font-medium text-text-main">المبلغ (USDT)</label>
                         <input
@@ -260,13 +262,49 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
     );
 };
 
-const WithdrawModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
-    // Placeholder for withdrawal logic
+const WithdrawModal: React.FC<{ isOpen: boolean; onClose: () => void; user: User; onWithdrawSuccess: () => void; }> = ({ isOpen, onClose, user, onWithdrawSuccess }) => {
+    const [amount, setAmount] = useState(10);
+    const [address, setAddress] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async () => {
+        setError('');
+        if (amount <= 0 || !address) {
+            setError('يرجى إدخال مبلغ وعنوان محفظة صالحين.');
+            return;
+        }
+        setIsLoading(true);
+        try {
+            await api.requestWithdrawal(user.id, amount, address);
+            alert('تم إرسال طلب السحب بنجاح!');
+            onWithdrawSuccess();
+            onClose();
+        } catch (e: any) {
+            setError(e.toString());
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="سحب الأموال">
-            <p className="text-text-secondary">ميزة السحب ستكون متاحة قريباً. يرجى الاتصال بالدعم للمساعدة.</p>
-            <div className="flex justify-end mt-4">
-                <Button onClick={onClose}>إغلاق</Button>
+        <Modal isOpen={isOpen} onClose={onClose} title="سحب الأرباح">
+            <div className="space-y-4">
+                <p className="text-text-secondary">رصيد الأرباح المتاح للسحب: <span className="font-bold text-green-400">${user.profitBalance.toFixed(2)}</span></p>
+                <p className="text-xs text-amber-400">الحد الأدنى للسحب هو 10$. يمكنك طلب السحب مرة كل 24 ساعة.</p>
+                <div>
+                    <label className="block text-sm font-medium text-text-main">المبلغ (USDT)</label>
+                    <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} min="10" max={user.profitBalance} className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-text-main">عنوان محفظة USDT (TRC20)</label>
+                    <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="أدخل عنوان محفظتك هنا" className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary" />
+                </div>
+                 {error && <p className="text-red-400 text-sm">{error}</p>}
+                <div className="flex justify-end gap-3">
+                    <Button variant="secondary" onClick={onClose}>إلغاء</Button>
+                    <Button onClick={handleSubmit} isLoading={isLoading}>إرسال طلب السحب</Button>
+                </div>
             </div>
         </Modal>
     );
@@ -277,11 +315,8 @@ export const UserPortal: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
-    // In a real app, you'd get the current user from auth context.
-    // Here we just fetch the first user.
     useEffect(() => {
-        // FIX: Use UserRole enum for comparison.
-        api.getUsers().then(users => setUser(users.find(u => u.role === UserRole.USER)!));
+        setUser(api.getLoggedInUser());
     }, [refreshKey]);
     
     const forceRefresh = () => setRefreshKey(k => k + 1);
@@ -291,6 +326,8 @@ export const UserPortal: React.FC = () => {
         { id: 'plans', label: 'خطط الاستثمار' },
         { id: 'referrals', label: 'الإحالات' },
     ];
+
+    if (!user) return <div className="text-center p-10 text-text-main">جاري تحميل المستخدم...</div>;
 
     return (
         <div>

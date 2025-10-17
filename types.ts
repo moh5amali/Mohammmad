@@ -7,13 +7,18 @@ export enum UserRole {
 export interface User {
     id: string;
     name: string;
-    email: string;
+    username: string;
+    password: string;
+    phoneNumber: string;
+    email?: string;
     role: UserRole;
     balance: number;
+    profitBalance: number;
     investedAmount: number;
     referralCode: string;
     referredBy?: string;
     createdAt: Date;
+    lastWithdrawal?: Date;
 }
 
 export interface InvestmentPackage {
@@ -31,6 +36,8 @@ export interface UserInvestment {
     packageId: string;
     amount: number;
     startDate: Date;
+    lastProfitCalculation: Date;
+    isActive: boolean;
 }
 
 export enum TransactionStatus {
@@ -54,8 +61,9 @@ export interface Transaction {
     status: TransactionStatus;
     amount: number;
     date: Date;
-    proof?: string; // for deposit screenshots (Data URL)
+    proof?: string; 
     details?: string;
+    walletAddress?: string;
 }
 
 export interface DepositMethod {
