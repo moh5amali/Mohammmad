@@ -2,21 +2,32 @@ import { User, UserRole, InvestmentPackage, Transaction, TransactionType, Transa
 
 // Utility to generate unique IDs
 const generateId = () => Math.random().toString(36).substring(2, 11);
+const generateToken = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const DB_KEY = 'investmentAppDB';
 const LOGGED_IN_USER_ID_KEY = 'loggedInUserId';
 
+// Fix: Define an interface for the database structure to ensure correct types.
+interface AppDB {
+    users: User[];
+    packages: InvestmentPackage[];
+    transactions: Transaction[];
+    depositMethods: DepositMethod[];
+    withdrawalMethods: WithdrawalMethod[];
+}
+
 // Default data if DB is empty
-const getDefaultData = () => {
+// Fix: Explicitly set return type to enforce the AppDB structure.
+const getDefaultData = (): AppDB => {
     const user1Id = 'user-1';
     const user2Id = 'user-2';
     const adminId = 'admin-1';
     
     return {
         users: [
-            { id: adminId, name: 'Admin', email: 'admin@example.com', role: UserRole.ADMIN, balance: 0, profitBalance: 0, investedAmount: 0, referralCode: 'ADMINREF' },
-            { id: user1Id, name: 'أحمد علي', email: 'user1@example.com', role: UserRole.USER, balance: 1500, profitBalance: 250, investedAmount: 1000, referralCode: 'AHMED123' },
-            { id: user2Id, name: 'فاطمة الزهراء', email: 'user2@example.com', role: UserRole.USER, balance: 200, profitBalance: 50, investedAmount: 500, referralCode: 'FATIMA456', referredBy: user1Id },
+            { id: adminId, username: 'm', name: 'Admin', email: 'admin@example.com', password: '1029', role: UserRole.ADMIN, balance: 0, profitBalance: 0, investedAmount: 0, referralCode: 'ADMINREF', isEmailVerified: true },
+            { id: user1Id, username: 'ahmedali', name: 'أحمد علي', email: 'user1@example.com', password: 'password123', phone: '123456789', role: UserRole.USER, balance: 1500, profitBalance: 250, investedAmount: 1000, referralCode: 'AHMED123', isEmailVerified: true },
+            { id: user2Id, username: 'fatima', name: 'فاطمة الزهراء', email: 'user2@example.com', password: 'password123', phone: '987654321', role: UserRole.USER, balance: 200, profitBalance: 50, investedAmount: 500, referralCode: 'FATIMA456', referredBy: user1Id, isEmailVerified: true },
         ],
         packages: [
             { id: 'pkg-1', name: 'الباقة البرونزية', minInvestment: 100, maxInvestment: 999, dailyProfitPercent: 5, durationDays: 30 },
@@ -40,7 +51,8 @@ const getDefaultData = () => {
     };
 };
 
-let DB: ReturnType<typeof getDefaultData>;
+// Fix: Use the explicit AppDB type for the database variable.
+let DB: AppDB;
 
 const loadDB = () => {
     try {
@@ -62,9 +74,7 @@ const saveDB = () => {
 
 loadDB(); // Load DB on module initialization
 
-// A little delay to simulate network latency
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
 
 // --- Auth ---
 
@@ -73,6 +83,94 @@ export const initializeData = () => {
         saveDB();
     }
 }
+
+export const register = async (userData: Pick<User, 'username' | 'name' | 'email' | 'phone' | 'password'>): Promise<User> => {
+    await delay(500);
+    if (DB.users.some(u => u.email === userData.email)) throw new Error('البريد الإلكتروني مسجل بالفعل.');
+    if (DB.users.some(u => u.username === userData.username)) throw new Error('اسم المستخدم مسجل بالفعل.');
+
+    const verificationToken = generateToken();
+    const verificationTokenExpires = new Date(Date.now() + 3600000).toISOString(); // 1 hour expiry
+
+    const newUser: User = {
+        id: generateId(),
+        role: UserRole.USER,
+        balance: 0,
+        profitBalance: 0,
+        investedAmount: 0,
+        referralCode: userData.username.toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase(),
+        isEmailVerified: false,
+        verificationToken,
+        verificationTokenExpires,
+        ...userData,
+    };
+    
+    DB.users.push(newUser);
+    saveDB();
+
+    console.log(`--- SIMULATING EMAIL ---`);
+    console.log(`To: ${newUser.email}`);
+    console.log(`Subject: Verify Your Account`);
+    console.log(`Your verification code is: ${verificationToken}`);
+    console.log(`------------------------`);
+
+    return newUser;
+};
+
+export const login = async (usernameOrEmail: string, password?: string): Promise<User> => {
+    await delay(500);
+    const user = DB.users.find(u => (u.username === usernameOrEmail || u.email === usernameOrEmail) && u.password === password);
+    if (!user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة.');
+    
+    setLoggedInUser(user.id);
+    return user;
+};
+
+
+export const verifyEmail = async (userId: string, token: string): Promise<void> => {
+    await delay(500);
+    const user = DB.users.find(u => u.id === userId);
+    if (!user) throw new Error("المستخدم غير موجود.");
+    if (user.verificationToken !== token) throw new Error("رمز التحقق غير صالح.");
+    if (new Date() > new Date(user.verificationTokenExpires!)) throw new Error("انتهت صلاحية رمز التحقق.");
+
+    user.isEmailVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpires = undefined;
+    saveDB();
+};
+
+export const requestPasswordReset = async (email: string): Promise<void> => {
+    await delay(500);
+    const user = DB.users.find(u => u.email === email);
+    if (user) {
+        const passwordResetToken = generateToken();
+        const passwordResetTokenExpires = new Date(Date.now() + 3600000).toISOString(); // 1 hour
+        user.passwordResetToken = passwordResetToken;
+        user.passwordResetTokenExpires = passwordResetTokenExpires;
+        saveDB();
+
+        console.log(`--- SIMULATING PASSWORD RESET EMAIL ---`);
+        console.log(`To: ${user.email}`);
+        console.log(`Your password reset code is: ${passwordResetToken}`);
+        console.log(`-------------------------------------`);
+    }
+    // Don't throw an error if user not found, for security reasons.
+};
+
+
+export const resetPassword = async (token: string, newPassword?: string): Promise<void> => {
+    await delay(500);
+    const user = DB.users.find(u => u.passwordResetToken === token);
+    if (!user) throw new Error("رمز إعادة التعيين غير صالح.");
+    if (new Date() > new Date(user.passwordResetTokenExpires!)) throw new Error("انتهت صلاحية رمز إعادة التعيين.");
+
+    user.password = newPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpires = undefined;
+    saveDB();
+};
+
 
 export const setLoggedInUser = (userId: string) => {
     localStorage.setItem(LOGGED_IN_USER_ID_KEY, userId);

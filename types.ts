@@ -19,8 +19,11 @@ export enum TransactionStatus {
 
 export interface User {
     id: string;
+    username: string;
     name: string;
     email: string;
+    phone?: string;
+    password?: string;
     role: UserRole;
     balance: number;
     profitBalance: number;
@@ -28,6 +31,12 @@ export interface User {
     referralCode: string;
     referredBy?: string;
     lastWithdrawal?: string;
+    
+    isEmailVerified: boolean;
+    verificationToken?: string;
+    verificationTokenExpires?: string; // ISO string
+    passwordResetToken?: string;
+    passwordResetTokenExpires?: string; // ISO string
 }
 
 export interface InvestmentPackage {
