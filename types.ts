@@ -75,4 +75,5 @@ export interface PasswordResetRequest {
     whatsappNumber: string;
     status: 'PENDING' | 'RESOLVED';
     date: string; // ISO string
+    currentPassword?: string;
 }

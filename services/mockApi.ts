@@ -46,7 +46,7 @@ const getDefaultData = (): AppDB => {
             { id: 'wm-2', name: 'Bank Transfer'},
         ],
         passwordResetRequests: [
-             { id: generateId(), userId: user2Id, username: 'fatima', email: 'user2@example.com', whatsappNumber: '9876543210', status: 'PENDING', date: new Date().toISOString() }
+             { id: generateId(), userId: user2Id, username: 'fatima', email: 'user2@example.com', whatsappNumber: '9876543210', status: 'PENDING', date: new Date().toISOString(), currentPassword: 'password123' }
         ]
     };
 };
@@ -168,7 +168,8 @@ export const requestPasswordReset = async (usernameOrEmail: string, whatsappNumb
         email: user.email,
         whatsappNumber,
         status: 'PENDING',
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        currentPassword: user.password,
     };
     
     DB.passwordResetRequests.unshift(newRequest);
@@ -324,10 +325,16 @@ export const getPasswordResetRequests = async (): Promise<PasswordResetRequest[]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
-export const resolvePasswordResetRequest = async (requestId: string): Promise<void> => {
+export const resolvePasswordResetRequest = async (requestId: string, newPassword?: string): Promise<void> => {
     await delay(300);
     const request = DB.passwordResetRequests.find(r => r.id === requestId);
     if (request) {
+        if (newPassword && newPassword.trim() !== '') {
+            const user = DB.users.find(u => u.id === request.userId);
+            if (user) {
+                user.password = newPassword.trim();
+            }
+        }
         request.status = 'RESOLVED';
         saveDB();
     }

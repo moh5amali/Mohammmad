@@ -212,6 +212,7 @@ const WithdrawalRequests: React.FC<{ onAction: () => void }> = ({ onAction }) =>
 const PasswordResetRequests: React.FC<{ onAction: () => void }> = ({ onAction }) => {
     const [requests, setRequests] = useState<PasswordResetRequest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [newPasswords, setNewPasswords] = useState<Record<string, string>>({});
 
     const fetchData = () => {
         setLoading(true);
@@ -224,11 +225,17 @@ const PasswordResetRequests: React.FC<{ onAction: () => void }> = ({ onAction })
         fetchData();
     }, []);
 
-    const handleResolve = async (id: string) => {
+    const handleResolve = async (requestId: string) => {
+        const newPassword = newPasswords[requestId];
         try {
-            await api.resolvePasswordResetRequest(id);
+            await api.resolvePasswordResetRequest(requestId, newPassword);
             fetchData(); // Refresh list
             onAction(); // Refresh other admin data if needed
+            setNewPasswords(prev => {
+                const newState = {...prev};
+                delete newState[requestId];
+                return newState;
+            });
         } catch (error) {
             console.error("Failed to resolve request:", error);
             alert("فشل الإجراء.");
@@ -245,7 +252,7 @@ const PasswordResetRequests: React.FC<{ onAction: () => void }> = ({ onAction })
                             <thead className="text-xs text-text-main uppercase bg-secondary">
                                 <tr>
                                     <th scope="col" className="px-6 py-3">اسم المستخدم</th>
-                                    <th scope="col" className="px-6 py-3">البريد الإلكتروني</th>
+                                    <th scope="col" className="px-6 py-3">كلمة المرور الحالية</th>
                                     <th scope="col" className="px-6 py-3">رقم الواتساب</th>
                                     <th scope="col" className="px-6 py-3">تاريخ الطلب</th>
                                     <th scope="col" className="px-6 py-3">الإجراء</th>
@@ -255,11 +262,24 @@ const PasswordResetRequests: React.FC<{ onAction: () => void }> = ({ onAction })
                                 {requests.map(req => (
                                     <tr key={req.id} className="border-b border-gray-700 hover:bg-secondary">
                                         <td className="px-6 py-4 font-medium text-text-main">{req.username}</td>
-                                        <td className="px-6 py-4">{req.email}</td>
+                                        <td className="px-6 py-4 font-mono text-amber-400">{req.currentPassword}</td>
                                         <td className="px-6 py-4 font-mono text-left">{req.whatsappNumber}</td>
                                         <td className="px-6 py-4">{new Date(req.date).toLocaleString('ar-EG')}</td>
-                                        <td className="px-6 py-4">
-                                            <Button variant="primary" onClick={() => handleResolve(req.id)}>تم الحل</Button>
+                                        <td className="px-6 py-4 space-y-2">
+                                            <input
+                                                type="text"
+                                                placeholder="كلمة مرور جديدة (اختياري)"
+                                                className="w-full bg-secondary-light text-white p-2 rounded-md text-sm border border-gray-600 focus:ring-primary focus:border-primary"
+                                                value={newPasswords[req.id] || ''}
+                                                onChange={(e) => setNewPasswords(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                            />
+                                            <Button 
+                                                variant="primary" 
+                                                onClick={() => handleResolve(req.id)}
+                                                className="w-full text-xs py-1"
+                                            >
+                                                {newPasswords[req.id] ? 'تعيين وحل' : 'حل الطلب'}
+                                            </Button>
                                         </td>
                                     </tr>
                                 ))}
