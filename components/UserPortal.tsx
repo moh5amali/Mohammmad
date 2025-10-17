@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { InvestmentPackage, Transaction, User, DepositMethod, UserRole, TransactionType, TransactionStatus, WithdrawalMethod } from '../types';
 import * as api from '../services/mockApi';
-// FIX: Imported UsersIcon component.
 import { Card, Button, Modal, StatCard, DollarSignIcon, ChartBarIcon, ArrowUpIcon, ArrowDownIcon, UsersIcon } from '../components/SharedComponents';
 
 const translateTransactionType = (type: TransactionType) => {

@@ -1,126 +1,98 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from './types';
+import * as api from './services/mockApi';
 import { Layout } from './components/Layout';
 import { UserPortal } from './components/UserPortal';
 import { AdminPortal } from './pages/AdminPortal';
-import * as api from './services/mockApi';
-import { Button, Card, DollarSignIcon } from './components/SharedComponents';
+import { Card, Button, Spinner } from './components/SharedComponents';
 
-const AuthPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
-    const [isLoginView, setIsLoginView] = useState(true);
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
-    const [phoneNumber, setPhoneNumber] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setIsLoading(true);
-        try {
-            let user;
-            if (isLoginView) {
-                user = await api.login(username, password);
-            } else {
-                user = await api.register(name, username, password, phoneNumber);
-            }
-            onLogin(user);
-        } catch (err: any) {
-            setError(err.toString());
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-secondary flex flex-col justify-center items-center p-4">
-             <div className="flex items-center gap-2 mb-8">
-                <DollarSignIcon className="w-12 h-12 text-primary" />
-                <h1 className="text-4xl font-bold text-white">استثمار</h1>
-            </div>
-            <Card className="w-full max-w-md">
-                <h2 className="text-2xl font-bold text-center text-text-main mb-6">
-                    {isLoginView ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
-                </h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {!isLoginView && (
-                         <>
-                            <div>
-                                <label className="block text-sm font-medium text-text-main">الاسم</label>
-                                <input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary"/>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-main">رقم الهاتف</label>
-                                <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary"/>
-                            </div>
-                        </>
-                    )}
-                    <div>
-                        <label className="block text-sm font-medium text-text-main">اسم المستخدم</label>
-                        <input type="text" value={username} onChange={e => setUsername(e.target.value)} required className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary"/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-text-main">كلمة المرور</label>
-                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary"/>
-                    </div>
-                    
-                    {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-                    
-                    <Button type="submit" className="w-full" isLoading={isLoading}>
-                        {isLoginView ? 'دخول' : 'تسجيل'}
-                    </Button>
-                </form>
-                <p className="text-center text-sm text-text-secondary mt-4">
-                    {isLoginView ? 'ليس لديك حساب؟' : 'لديك حساب بالفعل؟'}
-                    <button onClick={() => setIsLoginView(!isLoginView)} className="text-primary hover:underline font-semibold mx-1">
-                        {isLoginView ? 'أنشئ حساباً' : 'سجل الدخول'}
-                    </button>
-                </p>
-            </Card>
-        </div>
-    );
-};
-
+// Initialize mock data when app loads
+api.initializeData();
 
 const App: React.FC = () => {
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+    const [users, setUsers] = useState<User[]>([]);
+    const [selectedUserId, setSelectedUserId] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const user = api.getLoggedInUser();
-        if (user) {
-            setCurrentUser(user);
+        // Check if a user is already "logged in" from a previous session
+        const currentlyLoggedIn = api.getLoggedInUser();
+        if (currentlyLoggedIn) {
+            setLoggedInUser(currentlyLoggedIn);
         }
-        setIsLoading(false);
+
+        const fetchUsers = async () => {
+            setIsLoading(true);
+            try {
+                const allUsers = await api.getUsers();
+                setUsers(allUsers);
+                if (allUsers.length > 0 && !selectedUserId) {
+                    setSelectedUserId(allUsers[0].id);
+                }
+            } catch (error) {
+                console.error("Failed to fetch users", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchUsers();
     }, []);
 
-    const handleLogin = (user: User) => {
-        setCurrentUser(user);
+    const handleLogin = () => {
+        const user = users.find(u => u.id === selectedUserId);
+        if (user) {
+            api.setLoggedInUser(user.id); 
+            setLoggedInUser(user);
+        }
     };
 
     const handleLogout = () => {
         api.logout();
-        setCurrentUser(null);
+        setLoggedInUser(null);
+        if (users.length > 0) {
+            setSelectedUserId(users[0].id);
+        }
     };
 
-    if (isLoading) {
-        return <div className="bg-secondary text-white text-center p-12">جاري التحميل...</div>
-    }
-
-    if (!currentUser) {
-        return <AuthPage onLogin={handleLogin} />;
+    if (loggedInUser) {
+        return (
+            <Layout userRole={loggedInUser.role} onLogout={handleLogout}>
+                {loggedInUser.role === UserRole.ADMIN ? <AdminPortal /> : <UserPortal />}
+            </Layout>
+        );
     }
 
     return (
-        <Layout
-            userRole={currentUser.role}
-            onLogout={handleLogout}
-        >
-            {currentUser.role === UserRole.USER ? <UserPortal /> : <AdminPortal />}
-        </Layout>
+        <div className="min-h-screen bg-secondary text-text-main flex items-center justify-center p-4">
+            <Card className="w-full max-w-sm">
+                <h2 className="text-2xl font-bold text-center text-white mb-6">تسجيل الدخول</h2>
+                {isLoading ? <div className="flex justify-center"><Spinner /></div> : (
+                    <div className="space-y-4">
+                         <div>
+                            <label htmlFor="user-select" className="block text-sm font-medium text-text-secondary mb-2">
+                                اختر مستخدمًا لتسجيل الدخول كـ:
+                            </label>
+                            <select
+                                id="user-select"
+                                value={selectedUserId}
+                                onChange={(e) => setSelectedUserId(e.target.value)}
+                                className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary"
+                            >
+                                {users.map(user => (
+                                    <option key={user.id} value={user.id}>
+                                        {user.name} ({user.role})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <Button onClick={handleLogin} className="w-full">
+                            دخول
+                        </Button>
+                    </div>
+                )}
+            </Card>
+        </div>
     );
 };
 

@@ -1,351 +1,298 @@
-import { AppData, User, InvestmentPackage, Transaction, TransactionStatus, TransactionType, UserInvestment, DepositMethod, WithdrawalMethod, UserRole } from '../types';
+import { User, UserRole, InvestmentPackage, Transaction, TransactionType, TransactionStatus, DepositMethod, WithdrawalMethod } from '../types';
 
-const DB_KEY = 'investment_app_db';
+// Utility to generate unique IDs
+const generateId = () => Math.random().toString(36).substring(2, 11);
 
-const getDefaultData = (): AppData => ({
-    users: [
-        { id: 'user-1', name: 'Alice', username: 'alice', password: 'password123', phoneNumber: '555-0101', role: UserRole.USER, balance: 1500, profitBalance: 150, investedAmount: 500, referralCode: 'ALICE123', createdAt: new Date('2023-10-01') },
-        { id: 'user-2', name: 'Bob', username: 'bob', password: 'password123', phoneNumber: '555-0102', role: UserRole.USER, balance: 200, profitBalance: 20, investedAmount: 1000, referralCode: 'BOB456', referredBy: 'user-1', createdAt: new Date('2023-10-05') },
-        { id: 'admin-1', name: 'Admin', username: 'm', password: '1029', phoneNumber: '555-0100', role: UserRole.ADMIN, balance: 0, profitBalance: 0, investedAmount: 0, referralCode: 'ADMIN789', createdAt: new Date('2023-09-01') },
-    ],
-    packages: [
-        { id: 'pkg-1', name: 'Starter Plan', minInvestment: 100, maxInvestment: 999, dailyProfitPercent: 10, durationDays: 30 },
-        { id: 'pkg-2', name: 'Pro Plan', minInvestment: 1000, maxInvestment: 4999, dailyProfitPercent: 10, durationDays: 60 },
-        { id: 'pkg-3', name: 'VIP Plan', minInvestment: 5000, maxInvestment: 10000, dailyProfitPercent: 10, durationDays: 90 },
-    ],
-    userInvestments: [
-        { id: 'inv-1', userId: 'user-1', packageId: 'pkg-1', amount: 500, startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), lastProfitCalculation: new Date(Date.now() - 24 * 60 * 60 * 1000), isActive: true },
-        { id: 'inv-2', userId: 'user-2', packageId: 'pkg-2', amount: 1000, startDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), lastProfitCalculation: new Date(Date.now() - 24 * 60 * 60 * 1000), isActive: true },
-    ],
-    transactions: [
-        { id: 'txn-1', userId: 'user-1', type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, amount: 2000, date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), depositMethodId: 'dep-1' },
-        { id: 'txn-2', userId: 'user-2', type: TransactionType.DEPOSIT, status: TransactionStatus.PENDING, amount: 500, date: new Date(), proof: 'https://picsum.photos/400/300', depositMethodId: 'dep-1' },
-    ],
-    depositMethods: [
-        { id: 'dep-1', name: 'USDT (TRC20)', address: 'TXYZ...ABC' },
-    ],
-    withdrawalMethods: [
-        { id: 'wd-1', name: 'USDT (TRC20)' },
-    ],
-});
+const DB_KEY = 'investmentAppDB';
+const LOGGED_IN_USER_ID_KEY = 'loggedInUserId';
 
-const loadDb = (): AppData => {
+// Default data if DB is empty
+const getDefaultData = () => {
+    const user1Id = 'user-1';
+    const user2Id = 'user-2';
+    const adminId = 'admin-1';
+    
+    return {
+        users: [
+            { id: adminId, name: 'Admin', email: 'admin@example.com', role: UserRole.ADMIN, balance: 0, profitBalance: 0, investedAmount: 0, referralCode: 'ADMINREF' },
+            { id: user1Id, name: 'أحمد علي', email: 'user1@example.com', role: UserRole.USER, balance: 1500, profitBalance: 250, investedAmount: 1000, referralCode: 'AHMED123' },
+            { id: user2Id, name: 'فاطمة الزهراء', email: 'user2@example.com', role: UserRole.USER, balance: 200, profitBalance: 50, investedAmount: 500, referralCode: 'FATIMA456', referredBy: user1Id },
+        ],
+        packages: [
+            { id: 'pkg-1', name: 'الباقة البرونزية', minInvestment: 100, maxInvestment: 999, dailyProfitPercent: 5, durationDays: 30 },
+            { id: 'pkg-2', name: 'الباقة الفضية', minInvestment: 1000, maxInvestment: 4999, dailyProfitPercent: 7, durationDays: 45 },
+            { id: 'pkg-3', name: 'الباقة الذهبية', minInvestment: 5000, maxInvestment: 20000, dailyProfitPercent: 10, durationDays: 60 },
+        ],
+        transactions: [
+            { id: generateId(), userId: user1Id, type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, amount: 1000, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), depositMethodId: 'dm-1' },
+            { id: generateId(), userId: user1Id, type: TransactionType.INVESTMENT, status: TransactionStatus.COMPLETED, amount: 1000, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
+            { id: generateId(), userId: user1Id, type: TransactionType.PROFIT, status: TransactionStatus.COMPLETED, amount: 250, date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+             { id: generateId(), userId: user2Id, type: TransactionType.DEPOSIT, status: TransactionStatus.PENDING, amount: 500, date: new Date().toISOString(), depositMethodId: 'dm-1', proof: 'https://via.placeholder.com/300' },
+            { id: generateId(), userId: user1Id, type: TransactionType.WITHDRAWAL, status: TransactionStatus.PENDING, amount: 100, date: new Date().toISOString(), withdrawalMethodId: 'wm-1', walletAddress: 'TABC123XYZ' },
+        ],
+        depositMethods: [
+            { id: 'dm-1', name: 'USDT (TRC20)', address: 'TX7d5sA1c2B3d4E5f6G7h8I9j0K1l2M3n4o' },
+        ],
+        withdrawalMethods: [
+            { id: 'wm-1', name: 'USDT (TRC20)'},
+            { id: 'wm-2', name: 'Bank Transfer'},
+        ]
+    };
+};
+
+let DB: ReturnType<typeof getDefaultData>;
+
+const loadDB = () => {
     try {
         const data = localStorage.getItem(DB_KEY);
-        if (data) {
-            const parsedData = JSON.parse(data);
-            // Dates are stored as strings, need to parse them back
-            parsedData.users.forEach((u: User) => {
-                u.createdAt = new Date(u.createdAt);
-                if (u.lastWithdrawal) u.lastWithdrawal = new Date(u.lastWithdrawal);
-            });
-            parsedData.userInvestments.forEach((i: UserInvestment) => {
-                i.startDate = new Date(i.startDate);
-                i.lastProfitCalculation = new Date(i.lastProfitCalculation);
-            });
-            parsedData.transactions.forEach((t: Transaction) => t.date = new Date(t.date));
-            return parsedData;
-        }
-    } catch (error) {
-        console.error("Failed to load data from localStorage", error);
+        DB = data ? JSON.parse(data) : getDefaultData();
+    } catch (e) {
+        console.error("Failed to load DB from localStorage", e);
+        DB = getDefaultData();
     }
-    const defaultData = getDefaultData();
-    saveDb(defaultData);
-    return defaultData;
 };
 
-const saveDb = (db: AppData) => {
+const saveDB = () => {
     try {
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-    } catch (error) {
-        console.error("Failed to save data to localStorage", error);
+        localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    } catch (e) {
+        console.error("Failed to save DB to localStorage", e);
     }
 };
 
-let db = loadDb();
+loadDB(); // Load DB on module initialization
 
-const simulateDelay = <T,>(data: T): Promise<T> => new Promise(resolve => setTimeout(() => resolve(JSON.parse(JSON.stringify(data))), 300));
+// A little delay to simulate network latency
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 
-// --- Auth Functions ---
-export const login = (username: string, password: string): Promise<User> => {
-    const user = db.users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
-    if (user) {
-        sessionStorage.setItem('loggedInUserId', user.id);
-        return simulateDelay(user);
+// --- Auth ---
+
+export const initializeData = () => {
+    if (!localStorage.getItem(DB_KEY)) {
+        saveDB();
     }
-    return Promise.reject('اسم المستخدم أو كلمة المرور غير صحيحة');
-};
+}
 
-export const register = (name: string, username: string, password: string, phoneNumber: string): Promise<User> => {
-    if (db.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-        return Promise.reject('اسم المستخدم موجود بالفعل');
-    }
-    const newUser: User = {
-        id: `user-${Date.now()}`,
-        name,
-        username,
-        password,
-        phoneNumber,
-        role: UserRole.USER,
-        balance: 0,
-        profitBalance: 0,
-        investedAmount: 0,
-        referralCode: `${username.toUpperCase()}${Math.floor(100 + Math.random() * 900)}`,
-        createdAt: new Date(),
-    };
-    db.users.push(newUser);
-    saveDb(db);
-    sessionStorage.setItem('loggedInUserId', newUser.id);
-    return simulateDelay(newUser);
+export const setLoggedInUser = (userId: string) => {
+    localStorage.setItem(LOGGED_IN_USER_ID_KEY, userId);
 };
 
 export const logout = () => {
-    sessionStorage.removeItem('loggedInUserId');
-    return Promise.resolve();
+    localStorage.removeItem(LOGGED_IN_USER_ID_KEY);
 };
 
 export const getLoggedInUser = (): User | null => {
-    const userId = sessionStorage.getItem('loggedInUserId');
+    const userId = localStorage.getItem(LOGGED_IN_USER_ID_KEY);
     if (!userId) return null;
-    const user = db.users.find(u => u.id === userId);
-    return user ? { ...user } : null;
-};
-
-// --- Profit Calculation ---
-const calculateProfitsForUser = (userId: string) => {
-    const user = db.users.find(u => u.id === userId);
-    if (!user) return;
-
-    const investments = db.userInvestments.filter(inv => inv.userId === userId && inv.isActive);
-    const now = new Date();
-
-    investments.forEach(inv => {
-        const pkg = db.packages.find(p => p.id === inv.packageId);
-        if (!pkg) return;
-
-        const investmentEndDate = new Date(new Date(inv.startDate).getTime() + pkg.durationDays * 24 * 60 * 60 * 1000);
-        const calculationEndDate = now > investmentEndDate ? investmentEndDate : now;
-        
-        const hoursSinceLastCalc = (calculationEndDate.getTime() - new Date(inv.lastProfitCalculation).getTime()) / (1000 * 3600);
-        const periodsPassed = Math.floor(hoursSinceLastCalc / 24);
-
-        if (periodsPassed > 0) {
-            const profitAmount = periodsPassed * inv.amount * (pkg.dailyProfitPercent / 100);
-            user.balance += profitAmount;
-            user.profitBalance += profitAmount;
-            inv.lastProfitCalculation = new Date(new Date(inv.lastProfitCalculation).getTime() + periodsPassed * 24 * 60 * 60 * 1000);
-
-            db.transactions.push({
-                id: `txn-profit-${Date.now()}`,
-                userId,
-                type: TransactionType.PROFIT,
-                status: TransactionStatus.COMPLETED,
-                amount: profitAmount,
-                date: new Date(),
-                details: `Daily profit for ${pkg.name}`
-            });
-        }
-
-        // Check if investment is completed
-        if (now >= investmentEndDate) {
-            inv.isActive = false;
-            user.balance += inv.amount;
-            user.investedAmount -= inv.amount;
-        }
-    });
-
-    saveDb(db);
+    return DB.users.find(u => u.id === userId) || null;
 };
 
 
-// --- API Functions ---
-export const getDashboardData = (userId: string) => {
-    calculateProfitsForUser(userId);
-    const user = db.users.find(u => u.id === userId);
-    if (!user) return Promise.reject('User not found');
+// --- User Facing ---
 
-    const transactions = db.transactions.filter(t => t.userId === userId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+export const getDashboardData = async (userId: string): Promise<{ user: User, transactions: Transaction[] }> => {
+    await delay(300);
+    const user = DB.users.find(u => u.id === userId);
+    if (!user) throw new Error("User not found");
+    const transactions = DB.transactions
+        .filter(t => t.userId === userId)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 5);
+    return { user, transactions };
+};
+
+export const getInvestmentPackages = async (): Promise<InvestmentPackage[]> => {
+    await delay(200);
+    return [...DB.packages];
+};
+
+export const investInPackage = async (userId: string, packageId: string, amount: number): Promise<void> => {
+    await delay(500);
+    const user = DB.users.find(u => u.id === userId);
+    const pkg = DB.packages.find(p => p.id === packageId);
+    if (!user || !pkg) throw new Error("User or Package not found.");
+    if (amount < pkg.minInvestment || amount > pkg.maxInvestment) throw new Error(`Investment amount must be between $${pkg.minInvestment} and $${pkg.maxInvestment}.`);
+    if (user.balance < amount) throw new Error("Insufficient balance.");
     
-    return simulateDelay({ user, transactions: transactions.slice(0, 5) });
-};
-
-export const getAdminDashboardData = () => {
-    const totalUsers = db.users.filter(u => u.role === UserRole.USER).length;
-    const totalDeposits = db.transactions.filter(t => t.type === TransactionType.DEPOSIT && t.status === TransactionStatus.COMPLETED).reduce((sum, t) => sum + t.amount, 0);
-    const totalWithdrawals = db.transactions.filter(t => t.type === TransactionType.WITHDRAWAL && t.status === TransactionStatus.COMPLETED).reduce((sum, t) => sum + t.amount, 0);
-    const totalInvested = db.userInvestments.reduce((sum, inv) => sum + inv.amount, 0);
-    return simulateDelay({ totalUsers, totalDeposits, totalWithdrawals, netInvested: totalInvested });
-};
-
-export const getInvestmentPackages = () => simulateDelay(db.packages);
-
-export const investInPackage = (userId: string, packageId: string, amount: number) => {
-    const user = db.users.find(u => u.id === userId);
-    const pkg = db.packages.find(p => p.id === packageId);
-
-    if (!user || !pkg) return Promise.reject('User or Package not found');
-    if (user.balance < amount) return Promise.reject('Insufficient balance');
-    if (amount < pkg.minInvestment || amount > pkg.maxInvestment) return Promise.reject('Investment amount out of range');
-
     user.balance -= amount;
     user.investedAmount += amount;
+    DB.transactions.unshift({
+        id: generateId(),
+        userId,
+        type: TransactionType.INVESTMENT,
+        status: TransactionStatus.COMPLETED,
+        amount,
+        date: new Date().toISOString(),
+    });
     
-    const newInvestment: UserInvestment = { id: `inv-${Date.now()}`, userId, packageId, amount, startDate: new Date(), lastProfitCalculation: new Date(), isActive: true };
-    db.userInvestments.push(newInvestment);
-
-    const newTransaction: Transaction = { id: `txn-${Date.now()}`, userId, type: TransactionType.INVESTMENT, status: TransactionStatus.COMPLETED, amount, date: new Date(), details: `Invested in ${pkg.name}`};
-    db.transactions.push(newTransaction);
-
     if (user.referredBy) {
-      // Referral logic...
+        const referrer = DB.users.find(u => u.id === user.referredBy);
+        if (referrer && DB.transactions.filter(t => t.userId === userId && t.type === TransactionType.INVESTMENT).length === 1) {
+             const bonus = amount * 0.05;
+             referrer.profitBalance += bonus;
+             DB.transactions.unshift({
+                id: generateId(),
+                userId: referrer.id,
+                type: TransactionType.REFERRAL_BONUS,
+                status: TransactionStatus.COMPLETED,
+                amount: bonus,
+                date: new Date().toISOString(),
+             });
+        }
     }
-    
-    saveDb(db);
-    return simulateDelay({ success: true, user });
+
+    saveDB();
 };
 
-export const requestDeposit = (userId: string, amount: number, proof: string, depositMethodId: string) => {
-    const newTransaction: Transaction = {
-        id: `txn-${Date.now()}`,
+export const getDepositMethods = async (): Promise<DepositMethod[]> => {
+    await delay(100);
+    return [...DB.depositMethods];
+};
+
+export const requestDeposit = async (userId: string, amount: number, proof: string, methodId: string): Promise<void> => {
+    await delay(500);
+    DB.transactions.unshift({
+        id: generateId(),
         userId,
+        amount,
+        proof,
+        depositMethodId: methodId,
         type: TransactionType.DEPOSIT,
         status: TransactionStatus.PENDING,
-        amount,
-        date: new Date(),
-        proof,
-        depositMethodId,
-    };
-    db.transactions.push(newTransaction);
-    saveDb(db);
-    return simulateDelay({ success: true, transaction: newTransaction });
+        date: new Date().toISOString()
+    });
+    saveDB();
 };
 
-export const requestWithdrawal = (userId: string, amount: number, walletAddress: string, withdrawalMethodId: string) => {
-    const user = db.users.find(u => u.id === userId);
-    if (!user) return Promise.reject('User not found');
-    if (amount < 10) return Promise.reject('الحد الأدنى للسحب هو 10$');
-    if (user.profitBalance < amount) return Promise.reject('رصيد الأرباح غير كافٍ');
+export const getWithdrawalMethods = async (): Promise<WithdrawalMethod[]> => {
+    await delay(100);
+    return [...DB.withdrawalMethods];
+};
 
-    const now = new Date();
-    if (user.lastWithdrawal) {
-        const hoursSinceLast = (now.getTime() - new Date(user.lastWithdrawal).getTime()) / (1000 * 3600);
-        if (hoursSinceLast < 24) return Promise.reject('يمكنك طلب السحب مرة واحدة كل 24 ساعة');
+export const requestWithdrawal = async (userId: string, amount: number, walletAddress: string, methodId: string): Promise<void> => {
+    await delay(500);
+    const user = DB.users.find(u => u.id === userId);
+    if (!user) throw new Error("User not found.");
+    if (amount < 10) throw new Error("Minimum withdrawal is $10.");
+    if (user.profitBalance < amount) throw new Error("Insufficient profit balance.");
+    if (user.lastWithdrawal && (new Date().getTime() - new Date(user.lastWithdrawal).getTime()) < 24 * 60 * 60 * 1000) {
+        throw new Error("You can only request one withdrawal every 24 hours.");
     }
-
-    const newTransaction: Transaction = {
-        id: `txn-wd-${Date.now()}`,
+    
+    user.profitBalance -= amount;
+    DB.transactions.unshift({
+        id: generateId(),
         userId,
+        amount,
+        walletAddress,
+        withdrawalMethodId: methodId,
         type: TransactionType.WITHDRAWAL,
         status: TransactionStatus.PENDING,
-        amount,
-        date: now,
-        walletAddress,
-        withdrawalMethodId,
-    };
-    db.transactions.push(newTransaction);
-    user.lastWithdrawal = now;
-    saveDb(db);
-    return simulateDelay({ success: true });
+        date: new Date().toISOString()
+    });
+    saveDB();
 };
 
 
-export const getDepositMethods = () => simulateDelay(db.depositMethods);
-export const getWithdrawalMethods = () => simulateDelay(db.withdrawalMethods);
+// --- Admin Facing ---
 
-// ADMIN Functions
-export const addPackage = (pkg: Omit<InvestmentPackage, 'id'>) => {
-    const newPackage: InvestmentPackage = { ...pkg, id: `pkg-${Date.now()}` };
-    db.packages.push(newPackage);
-    saveDb(db);
-    return simulateDelay(newPackage);
+export const getAdminDashboardData = async () => {
+    await delay(400);
+    const totalUsers = DB.users.filter(u => u.role === UserRole.USER).length;
+    const totalDeposits = DB.transactions.filter(t => t.type === TransactionType.DEPOSIT && t.status === TransactionStatus.COMPLETED).reduce((sum, t) => sum + t.amount, 0);
+    const totalWithdrawals = DB.transactions.filter(t => t.type === TransactionType.WITHDRAWAL && t.status === TransactionStatus.COMPLETED).reduce((sum, t) => sum + t.amount, 0);
+    const netInvested = DB.users.reduce((sum, u) => sum + u.investedAmount, 0);
+    return { totalUsers, totalDeposits, totalWithdrawals, netInvested };
 };
 
-export const deletePackage = (packageId: string) => {
-    db.packages = db.packages.filter(p => p.id !== packageId);
-    saveDb(db);
-    return simulateDelay({ success: true });
+export const getUsers = async (): Promise<User[]> => {
+    await delay(100);
+    return [...DB.users];
 };
 
-export const approveDeposit = (transactionId: string) => {
-    const transaction = db.transactions.find(t => t.id === transactionId);
-    if (!transaction || transaction.type !== TransactionType.DEPOSIT) return Promise.reject('Transaction not found or not a deposit');
-    
-    const user = db.users.find(u => u.id === transaction.userId);
-    if (!user) return Promise.reject('User not found');
+export const getTransactions = async (): Promise<Transaction[]> => {
+    await delay(200);
+    return [...DB.transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
+export const approveDeposit = async (transactionId: string): Promise<void> => {
+    await delay(300);
+    const transaction = DB.transactions.find(t => t.id === transactionId);
+    if (!transaction || transaction.type !== TransactionType.DEPOSIT) throw new Error("Transaction not found or not a deposit.");
+    const user = DB.users.find(u => u.id === transaction.userId);
+    if (!user) throw new Error("User not found.");
 
     transaction.status = TransactionStatus.COMPLETED;
     user.balance += transaction.amount;
-    saveDb(db);
-    return simulateDelay({ success: true });
+    saveDB();
 };
 
-export const rejectDeposit = (transactionId: string) => {
-    const transaction = db.transactions.find(t => t.id === transactionId);
-    if (!transaction) return Promise.reject('Transaction not found');
+export const rejectDeposit = async (transactionId: string): Promise<void> => {
+    await delay(300);
+    const transaction = DB.transactions.find(t => t.id === transactionId);
+    if (!transaction) throw new Error("Transaction not found.");
     transaction.status = TransactionStatus.REJECTED;
-    saveDb(db);
-    return simulateDelay({ success: true });
+    saveDB();
 };
 
-export const approveWithdrawal = (transactionId: string) => {
-    const transaction = db.transactions.find(t => t.id === transactionId);
-    if (!transaction || transaction.type !== TransactionType.WITHDRAWAL) return Promise.reject('Transaction not found or not a withdrawal');
-
-    const user = db.users.find(u => u.id === transaction.userId);
-    if (!user) return Promise.reject('User not found');
-
-    if (user.balance < transaction.amount || user.profitBalance < transaction.amount) {
-        transaction.status = TransactionStatus.REJECTED;
-        transaction.details = "Insufficient funds at time of approval.";
-        saveDb(db);
-        return Promise.reject("Insufficient funds");
-    }
-
+export const approveWithdrawal = async (transactionId: string): Promise<void> => {
+    await delay(300);
+    const transaction = DB.transactions.find(t => t.id === transactionId);
+    if (!transaction || transaction.type !== TransactionType.WITHDRAWAL) throw new Error("Transaction not found or not a withdrawal.");
+    const user = DB.users.find(u => u.id === transaction.userId);
+    if (!user) throw new Error("User not found.");
+    
     transaction.status = TransactionStatus.COMPLETED;
-    user.balance -= transaction.amount;
-    user.profitBalance -= transaction.amount;
-    saveDb(db);
-    return simulateDelay({ success: true });
+    user.lastWithdrawal = new Date().toISOString();
+    saveDB();
 };
 
-export const rejectWithdrawal = (transactionId: string) => {
-    const transaction = db.transactions.find(t => t.id === transactionId);
-    if (!transaction) return Promise.reject('Transaction not found');
+export const rejectWithdrawal = async (transactionId: string): Promise<void> => {
+    await delay(300);
+    const transaction = DB.transactions.find(t => t.id === transactionId);
+    if (!transaction) throw new Error("Transaction not found.");
+    const user = DB.users.find(u => u.id === transaction.userId);
+    if (!user) throw new Error("User not found.");
+    
     transaction.status = TransactionStatus.REJECTED;
-    // Note: We don't refund any amount or reset cooldown as no money was moved.
-    saveDb(db);
-    return simulateDelay({ success: true });
+    // Refund the amount to user's profit balance
+    user.profitBalance += transaction.amount;
+    saveDB();
 };
 
-
-export const addDepositMethod = (method: Omit<DepositMethod, 'id'>) => {
-    const newMethod: DepositMethod = { ...method, id: `dep-${Date.now()}`};
-    db.depositMethods.push(newMethod);
-    saveDb(db);
-    return simulateDelay(newMethod);
+export const addPackage = async (pkg: Omit<InvestmentPackage, 'id'>): Promise<void> => {
+    await delay(200);
+    DB.packages.push({ ...pkg, id: generateId() });
+    saveDB();
 };
 
-export const deleteDepositMethod = (methodId: string) => {
-    db.depositMethods = db.depositMethods.filter(m => m.id !== methodId);
-    saveDb(db);
-    return simulateDelay({ success: true });
+export const deletePackage = async (packageId: string): Promise<void> => {
+    await delay(200);
+    DB.packages = DB.packages.filter(p => p.id !== packageId);
+    saveDB();
 };
 
-export const addWithdrawalMethod = (method: Omit<WithdrawalMethod, 'id'>) => {
-    const newMethod: WithdrawalMethod = { ...method, id: `wd-${Date.now()}` };
-    db.withdrawalMethods.push(newMethod);
-    saveDb(db);
-    return simulateDelay(newMethod);
+export const addDepositMethod = async (method: Omit<DepositMethod, 'id'>): Promise<void> => {
+    await delay(200);
+    DB.depositMethods.push({ ...method, id: generateId() });
+    saveDB();
 };
 
-export const deleteWithdrawalMethod = (methodId: string) => {
-    db.withdrawalMethods = db.withdrawalMethods.filter(m => m.id !== methodId);
-    saveDb(db);
-    return simulateDelay({ success: true });
+export const deleteDepositMethod = async (methodId: string): Promise<void> => {
+    await delay(200);
+    DB.depositMethods = DB.depositMethods.filter(m => m.id !== methodId);
+    saveDB();
 };
 
+export const addWithdrawalMethod = async (method: Omit<WithdrawalMethod, 'id'>): Promise<void> => {
+    await delay(200);
+    DB.withdrawalMethods.push({ ...method, id: generateId() });
+    saveDB();
+};
 
-export const getUsers = () => simulateDelay(db.users);
-
-export const getTransactions = () => simulateDelay(db.transactions);
+export const deleteWithdrawalMethod = async (methodId: string): Promise<void> => {
+    await delay(200);
+    DB.withdrawalMethods = DB.withdrawalMethods.filter(m => m.id !== methodId);
+    saveDB();
+};
