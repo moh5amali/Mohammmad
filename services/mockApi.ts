@@ -62,8 +62,14 @@ const loadDB = () => {
         console.error("Failed to load DB from localStorage, using defaults.", e);
         dbData = getDefaultData();
     }
-
+    
     // --- FIX START ---
+    // Ensure passwordResetRequests array exists to prevent errors on older DB structures.
+    if (!dbData.passwordResetRequests) {
+        dbData.passwordResetRequests = [];
+    }
+    // --- FIX END ---
+
     // Ensure admin user always exists and has the correct password.
     const adminUsername = 'm';
     const adminPassword = '1029';
@@ -92,7 +98,6 @@ const loadDB = () => {
     if (needsSave) {
         saveDB(); 
     }
-    // --- FIX END ---
 };
 
 const saveDB = () => {

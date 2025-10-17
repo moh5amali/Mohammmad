@@ -147,7 +147,7 @@ const App: React.FC = () => {
         return (
             <AuthFormCard title="استعادة كلمة المرور">
                  <form onSubmit={handleRequestReset} className="space-y-4">
-                    <p className="text-text-secondary text-center text-sm">أدخل بيانات حسابك ورقم واتساب للتواصل.</p>
+                    <p className="text-text-secondary text-center text-sm">أدخل بيانات حسابك ورقم واتساب. ستتواصل معك الإدارة خلال 24 ساعة لاستعادة كلمة المرور.</p>
                     <input name="usernameOrEmail" type="text" placeholder="اسم المستخدم أو البريد الإلكتروني" required className={inputClass} />
                     <input name="whatsapp" type="tel" placeholder="رقم الواتساب" required className={inputClass} />
                     {error && <p className="text-red-400 text-sm">{error}</p>}
