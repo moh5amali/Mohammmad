@@ -1,4 +1,3 @@
-
 export enum UserRole {
     USER = 'USER',
     ADMIN = 'ADMIN'
@@ -64,6 +63,8 @@ export interface Transaction {
     proof?: string; 
     details?: string;
     walletAddress?: string;
+    depositMethodId?: string;
+    withdrawalMethodId?: string;
 }
 
 export interface DepositMethod {

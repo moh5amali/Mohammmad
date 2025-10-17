@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { InvestmentPackage, Transaction, User, DepositMethod, UserRole, TransactionType, TransactionStatus, WithdrawalMethod } from '../types';
 import * as api from '../services/mockApi';
@@ -194,9 +193,17 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [methods, setMethods] = useState<DepositMethod[]>([]);
+    const [selectedMethod, setSelectedMethod] = useState<DepositMethod | null>(null);
 
     useEffect(() => {
-        if(isOpen) api.getDepositMethods().then(setMethods);
+        if (isOpen) {
+            api.getDepositMethods().then(setMethods);
+            setSelectedMethod(null);
+            setAmount(100);
+            setProof(null);
+            setProofPreview(null);
+            setError('');
+        }
     }, [isOpen]);
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,7 +219,7 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
     };
 
     const handleSubmit = async () => {
-        if (!proof || amount <= 0) {
+        if (!proof || amount <= 0 || !selectedMethod) {
             setError('يرجى تقديم مبلغ صالح ولقطة شاشة كإثبات.');
             return;
         }
@@ -222,7 +229,7 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
             const reader = new FileReader();
             reader.readAsDataURL(proof);
             reader.onload = async () => {
-                await api.requestDeposit(userId, amount, reader.result as string);
+                await api.requestDeposit(userId, amount, reader.result as string, selectedMethod.id);
                 onDepositSuccess();
                 onClose();
             };
@@ -235,29 +242,39 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="إيداع USDT">
-            <div className="space-y-4">
-                {methods.length > 0 && (
+            {!selectedMethod ? (
+                <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-text-main">الخطوة 1: اختر طريقة الإيداع</h3>
+                    {methods.length > 0 ? methods.map(method => (
+                        <div key={method.id} onClick={() => setSelectedMethod(method)}
+                             className="p-4 bg-secondary rounded-lg border border-gray-600 hover:border-primary cursor-pointer transition-all">
+                            <p className="font-bold text-text-main">{method.name}</p>
+                        </div>
+                    )) : <p className="text-text-secondary">لا توجد طرق إيداع متاحة حالياً.</p>}
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-text-main">الخطوة 2: تفاصيل الإيداع</h3>
                     <div className="p-3 bg-secondary rounded-md">
-                        <p className="text-text-secondary">أرسل USDT الخاص بك إلى العنوان التالي:</p>
-                        <p className="text-primary font-mono text-lg break-all">{methods[0].address}</p>
-                        <p className="text-xs text-amber-400 mt-1">الشبكة: {methods[0].name}</p>
+                        <p className="text-text-secondary">أرسل USDT الخاص بك إلى العنوان التالي ({selectedMethod.name}):</p>
+                        <p className="text-primary font-mono text-lg break-all">{selectedMethod.address}</p>
                     </div>
-                )}
-                 <div>
-                    <label className="block text-sm font-medium text-text-main">المبلغ (USDT)</label>
-                    <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary" />
+                     <div>
+                        <label className="block text-sm font-medium text-text-main">المبلغ (USDT)</label>
+                        <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-text-main">لقطة شاشة للمعاملة</label>
+                        <input type="file" accept="image/*" onChange={handleFileChange} className="w-full text-sm text-text-secondary file:ml-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark cursor-pointer mt-1"/>
+                    </div>
+                    {proofPreview && <img src={proofPreview} alt="Proof preview" className="max-h-40 rounded-md mx-auto"/>}
+                    {error && <p className="text-red-400 text-sm">{error}</p>}
+                    <div className="flex justify-between gap-3">
+                        <Button variant="secondary" onClick={() => setSelectedMethod(null)}>رجوع</Button>
+                        <Button onClick={handleSubmit} isLoading={isLoading} disabled={!proof}>إرسال طلب الإيداع</Button>
+                    </div>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-text-main">لقطة شاشة للمعاملة</label>
-                    <input type="file" accept="image/*" onChange={handleFileChange} className="w-full text-sm text-text-secondary file:ml-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark cursor-pointer mt-1"/>
-                </div>
-                {proofPreview && <img src={proofPreview} alt="Proof preview" className="max-h-40 rounded-md mx-auto"/>}
-                {error && <p className="text-red-400 text-sm">{error}</p>}
-                <div className="flex justify-end gap-3">
-                    <Button variant="secondary" onClick={onClose}>إلغاء</Button>
-                    <Button onClick={handleSubmit} isLoading={isLoading} disabled={!proof}>إرسال طلب الإيداع</Button>
-                </div>
-            </div>
+            )}
         </Modal>
     );
 };
@@ -267,16 +284,32 @@ const WithdrawModal: React.FC<{ isOpen: boolean; onClose: () => void; user: User
     const [address, setAddress] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [methods, setMethods] = useState<WithdrawalMethod[]>([]);
+    const [selectedMethodId, setSelectedMethodId] = useState('');
+
+    useEffect(() => {
+        if(isOpen) {
+            api.getWithdrawalMethods().then(data => {
+                setMethods(data);
+                if (data.length > 0) {
+                    setSelectedMethodId(data[0].id);
+                }
+            });
+            setAmount(10);
+            setAddress('');
+            setError('');
+        }
+    }, [isOpen]);
 
     const handleSubmit = async () => {
         setError('');
-        if (amount <= 0 || !address) {
-            setError('يرجى إدخال مبلغ وعنوان محفظة صالحين.');
+        if (amount <= 0 || !address || !selectedMethodId) {
+            setError('يرجى إدخال مبلغ وعنوان محفظة صالحين واختيار طريقة السحب.');
             return;
         }
         setIsLoading(true);
         try {
-            await api.requestWithdrawal(user.id, amount, address);
+            await api.requestWithdrawal(user.id, amount, address, selectedMethodId);
             alert('تم إرسال طلب السحب بنجاح!');
             onWithdrawSuccess();
             onClose();
@@ -293,11 +326,19 @@ const WithdrawModal: React.FC<{ isOpen: boolean; onClose: () => void; user: User
                 <p className="text-text-secondary">رصيد الأرباح المتاح للسحب: <span className="font-bold text-green-400">${user.profitBalance.toFixed(2)}</span></p>
                 <p className="text-xs text-amber-400">الحد الأدنى للسحب هو 10$. يمكنك طلب السحب مرة كل 24 ساعة.</p>
                 <div>
+                    <label className="block text-sm font-medium text-text-main">طريقة السحب</label>
+                    <select value={selectedMethodId} onChange={e => setSelectedMethodId(e.target.value)} className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary">
+                        {methods.map(method => (
+                            <option key={method.id} value={method.id}>{method.name}</option>
+                        ))}
+                    </select>
+                </div>
+                <div>
                     <label className="block text-sm font-medium text-text-main">المبلغ (USDT)</label>
                     <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} min="10" max={user.profitBalance} className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary" />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-text-main">عنوان محفظة USDT (TRC20)</label>
+                    <label className="block text-sm font-medium text-text-main">عنوان محفظتك</label>
                     <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="أدخل عنوان محفظتك هنا" className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary" />
                 </div>
                  {error && <p className="text-red-400 text-sm">{error}</p>}

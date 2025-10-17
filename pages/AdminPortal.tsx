@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { InvestmentPackage, Transaction, User, DepositMethod, TransactionStatus, TransactionType, WithdrawalMethod } from '../types';
 import * as api from '../services/mockApi';
@@ -53,16 +52,19 @@ const DepositRequests: React.FC<{onAction: () => void}> = ({onAction}) => {
     const [requests, setRequests] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<User[]>([]);
+    const [depositMethods, setDepositMethods] = useState<DepositMethod[]>([]);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     const fetchData = () => {
          setLoading(true);
         Promise.all([
             api.getTransactions(),
-            api.getUsers()
-        ]).then(([transactions, usersData]) => {
+            api.getUsers(),
+            api.getDepositMethods()
+        ]).then(([transactions, usersData, methodsData]) => {
             setRequests(transactions.filter(t => t.type === TransactionType.DEPOSIT && t.status === TransactionStatus.PENDING));
             setUsers(usersData);
+            setDepositMethods(methodsData);
         }).finally(() => setLoading(false));
     }
 
@@ -83,6 +85,7 @@ const DepositRequests: React.FC<{onAction: () => void}> = ({onAction}) => {
     };
     
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'مستخدم غير معروف';
+    const getMethodName = (methodId?: string) => depositMethods.find(m => m.id === methodId)?.name || 'غير محدد';
     
     return (
         <div className="space-y-6 animate-fade-in">
@@ -95,6 +98,7 @@ const DepositRequests: React.FC<{onAction: () => void}> = ({onAction}) => {
                                 <tr>
                                     <th scope="col" className="px-6 py-3">المستخدم</th>
                                     <th scope="col" className="px-6 py-3">المبلغ</th>
+                                    <th scope="col" className="px-6 py-3">الطريقة</th>
                                     <th scope="col" className="px-6 py-3">التاريخ</th>
                                     <th scope="col" className="px-6 py-3">الإثبات</th>
                                     <th scope="col" className="px-6 py-3">الإجراءات</th>
@@ -105,6 +109,7 @@ const DepositRequests: React.FC<{onAction: () => void}> = ({onAction}) => {
                                     <tr key={req.id} className="border-b border-gray-700 hover:bg-secondary">
                                         <td className="px-6 py-4 font-medium text-text-main">{getUserName(req.userId)}</td>
                                         <td className="px-6 py-4 text-green-400 font-bold">${req.amount}</td>
+                                        <td className="px-6 py-4">{getMethodName(req.depositMethodId)}</td>
                                         <td className="px-6 py-4">{new Date(req.date).toLocaleString('ar-EG')}</td>
                                         <td className="px-6 py-4"><Button variant="secondary" onClick={() => setSelectedImage(req.proof || null)}>عرض</Button></td>
                                         <td className="px-6 py-4 flex gap-2">
@@ -129,13 +134,15 @@ const WithdrawalRequests: React.FC<{ onAction: () => void }> = ({ onAction }) =>
     const [requests, setRequests] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<User[]>([]);
+    const [withdrawalMethods, setWithdrawalMethods] = useState<WithdrawalMethod[]>([]);
 
     const fetchData = () => {
         setLoading(true);
-        Promise.all([api.getTransactions(), api.getUsers()])
-            .then(([transactions, usersData]) => {
+        Promise.all([api.getTransactions(), api.getUsers(), api.getWithdrawalMethods()])
+            .then(([transactions, usersData, methodsData]) => {
                 setRequests(transactions.filter(t => t.type === TransactionType.WITHDRAWAL && t.status === TransactionStatus.PENDING));
                 setUsers(usersData);
+                setWithdrawalMethods(methodsData);
             })
             .finally(() => setLoading(false));
     };
@@ -157,6 +164,7 @@ const WithdrawalRequests: React.FC<{ onAction: () => void }> = ({ onAction }) =>
     };
 
     const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'مستخدم غير معروف';
+    const getMethodName = (methodId?: string) => withdrawalMethods.find(m => m.id === methodId)?.name || 'غير محدد';
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -169,6 +177,7 @@ const WithdrawalRequests: React.FC<{ onAction: () => void }> = ({ onAction }) =>
                                 <tr>
                                     <th scope="col" className="px-6 py-3">المستخدم</th>
                                     <th scope="col" className="px-6 py-3">المبلغ</th>
+                                    <th scope="col" className="px-6 py-3">الطريقة</th>
                                     <th scope="col" className="px-6 py-3">عنوان المحفظة</th>
                                     <th scope="col" className="px-6 py-3">التاريخ</th>
                                     <th scope="col" className="px-6 py-3">الإجراءات</th>
@@ -179,6 +188,7 @@ const WithdrawalRequests: React.FC<{ onAction: () => void }> = ({ onAction }) =>
                                     <tr key={req.id} className="border-b border-gray-700 hover:bg-secondary">
                                         <td className="px-6 py-4 font-medium text-text-main">{getUserName(req.userId)}</td>
                                         <td className="px-6 py-4 text-red-400 font-bold">${req.amount}</td>
+                                        <td className="px-6 py-4">{getMethodName(req.withdrawalMethodId)}</td>
                                         <td className="px-6 py-4 font-mono text-xs">
                                             <span className="break-all">{req.walletAddress}</span>
                                             <button onClick={() => navigator.clipboard.writeText(req.walletAddress || '')} className="ml-2 text-primary text-xs">نسخ</button>

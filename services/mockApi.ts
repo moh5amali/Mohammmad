@@ -1,4 +1,3 @@
-
 import { AppData, User, InvestmentPackage, Transaction, TransactionStatus, TransactionType, UserInvestment, DepositMethod, WithdrawalMethod, UserRole } from '../types';
 
 const DB_KEY = 'investment_app_db';
@@ -19,8 +18,8 @@ const getDefaultData = (): AppData => ({
         { id: 'inv-2', userId: 'user-2', packageId: 'pkg-2', amount: 1000, startDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), lastProfitCalculation: new Date(Date.now() - 24 * 60 * 60 * 1000), isActive: true },
     ],
     transactions: [
-        { id: 'txn-1', userId: 'user-1', type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, amount: 2000, date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) },
-        { id: 'txn-2', userId: 'user-2', type: TransactionType.DEPOSIT, status: TransactionStatus.PENDING, amount: 500, date: new Date(), proof: 'https://picsum.photos/400/300' },
+        { id: 'txn-1', userId: 'user-1', type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, amount: 2000, date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), depositMethodId: 'dep-1' },
+        { id: 'txn-2', userId: 'user-2', type: TransactionType.DEPOSIT, status: TransactionStatus.PENDING, amount: 500, date: new Date(), proof: 'https://picsum.photos/400/300', depositMethodId: 'dep-1' },
     ],
     depositMethods: [
         { id: 'dep-1', name: 'USDT (TRC20)', address: 'TXYZ...ABC' },
@@ -206,7 +205,7 @@ export const investInPackage = (userId: string, packageId: string, amount: numbe
     return simulateDelay({ success: true, user });
 };
 
-export const requestDeposit = (userId: string, amount: number, proof: string) => {
+export const requestDeposit = (userId: string, amount: number, proof: string, depositMethodId: string) => {
     const newTransaction: Transaction = {
         id: `txn-${Date.now()}`,
         userId,
@@ -214,14 +213,15 @@ export const requestDeposit = (userId: string, amount: number, proof: string) =>
         status: TransactionStatus.PENDING,
         amount,
         date: new Date(),
-        proof
+        proof,
+        depositMethodId,
     };
     db.transactions.push(newTransaction);
     saveDb(db);
     return simulateDelay({ success: true, transaction: newTransaction });
 };
 
-export const requestWithdrawal = (userId: string, amount: number, walletAddress: string) => {
+export const requestWithdrawal = (userId: string, amount: number, walletAddress: string, withdrawalMethodId: string) => {
     const user = db.users.find(u => u.id === userId);
     if (!user) return Promise.reject('User not found');
     if (amount < 10) return Promise.reject('الحد الأدنى للسحب هو 10$');
@@ -240,7 +240,8 @@ export const requestWithdrawal = (userId: string, amount: number, walletAddress:
         status: TransactionStatus.PENDING,
         amount,
         date: now,
-        walletAddress
+        walletAddress,
+        withdrawalMethodId,
     };
     db.transactions.push(newTransaction);
     user.lastWithdrawal = now;
