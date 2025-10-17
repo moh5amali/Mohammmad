@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { InvestmentPackage, Transaction, User, DepositMethod } from '../types';
+// FIX: Import enums for type-safe comparisons.
+import { InvestmentPackage, Transaction, User, DepositMethod, TransactionStatus, TransactionType } from '../types';
 import * as api from '../services/mockApi';
 import { Card, Button, Modal, StatCard, DollarSignIcon, UsersIcon, ArrowUpIcon, ArrowDownIcon, CheckCircleIcon, XCircleIcon } from '../components/SharedComponents';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -14,24 +15,24 @@ const AdminDashboard: React.FC = () => {
         api.getAdminDashboardData().then(setStats).finally(() => setLoading(false));
     }, []);
 
-    if (loading || !stats) return <div className="text-center p-10 text-text-main">Loading admin data...</div>;
+    if (loading || !stats) return <div className="text-center p-10 text-text-main">جاري تحميل بيانات المشرف...</div>;
 
     const chartData = [
-        { name: 'Totals', Deposits: stats.totalDeposits, Withdrawals: stats.totalWithdrawals, Invested: stats.netInvested }
+        { name: 'الإجماليات', Deposits: stats.totalDeposits, Withdrawals: stats.totalWithdrawals, Invested: stats.netInvested }
     ];
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <h2 className="text-3xl font-bold text-text-main">Admin Dashboard</h2>
+            <h2 className="text-3xl font-bold text-text-main">لوحة تحكم المشرف</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                 <StatCard title="Total Users" value={stats.totalUsers} icon={<UsersIcon className="w-6 h-6 text-white"/>} colorClass="bg-blue-500" />
-                 <StatCard title="Total Deposits" value={`$${stats.totalDeposits.toFixed(2)}`} icon={<ArrowUpIcon className="w-6 h-6 text-white"/>} colorClass="bg-green-500" />
-                 <StatCard title="Total Withdrawals" value={`$${stats.totalWithdrawals.toFixed(2)}`} icon={<ArrowDownIcon className="w-6 h-6 text-white"/>} colorClass="bg-red-500" />
-                 <StatCard title="Total Invested" value={`$${stats.netInvested.toFixed(2)}`} icon={<DollarSignIcon className="w-6 h-6 text-white"/>} colorClass="bg-yellow-500" />
+                 <StatCard title="إجمالي المستخدمين" value={stats.totalUsers} icon={<UsersIcon className="w-6 h-6 text-white"/>} colorClass="bg-blue-500" />
+                 <StatCard title="إجمالي الإيداعات" value={`$${stats.totalDeposits.toFixed(2)}`} icon={<ArrowUpIcon className="w-6 h-6 text-white"/>} colorClass="bg-green-500" />
+                 <StatCard title="إجمالي السحوبات" value={`$${stats.totalWithdrawals.toFixed(2)}`} icon={<ArrowDownIcon className="w-6 h-6 text-white"/>} colorClass="bg-red-500" />
+                 <StatCard title="إجمالي المستثمر" value={`$${stats.netInvested.toFixed(2)}`} icon={<DollarSignIcon className="w-6 h-6 text-white"/>} colorClass="bg-yellow-500" />
             </div>
 
             <Card>
-                <h3 className="text-xl font-bold text-text-main mb-4">Financial Overview</h3>
+                <h3 className="text-xl font-bold text-text-main mb-4">نظرة مالية عامة</h3>
                 <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -39,9 +40,9 @@ const AdminDashboard: React.FC = () => {
                         <YAxis tick={{ fill: '#94A3B8' }} />
                         <Tooltip contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #374151' }}/>
                         <Legend wrapperStyle={{ color: '#E2E8F0' }} />
-                        <Bar dataKey="Deposits" fill="#10B981" />
-                        <Bar dataKey="Withdrawals" fill="#EF4444" />
-                        <Bar dataKey="Invested" fill="#FBBF24" />
+                        <Bar dataKey="Deposits" name="الإيداعات" fill="#10B981" />
+                        <Bar dataKey="Withdrawals" name="السحوبات" fill="#EF4444" />
+                        <Bar dataKey="Invested" name="المستثمر" fill="#FBBF24" />
                     </BarChart>
                 </ResponsiveContainer>
             </Card>
@@ -61,7 +62,8 @@ const DepositRequests: React.FC<{onAction: () => void}> = ({onAction}) => {
             api.getTransactions(),
             api.getUsers()
         ]).then(([transactions, usersData]) => {
-            setRequests(transactions.filter(t => t.status === 'PENDING' && t.type === 'DEPOSIT'));
+            // FIX: Use enums for status and type comparison for better type safety and consistency.
+            setRequests(transactions.filter(t => t.status === TransactionStatus.PENDING && t.type === TransactionType.DEPOSIT));
             setUsers(usersData);
         }).finally(() => setLoading(false));
     }, [onAction]);
@@ -73,26 +75,26 @@ const DepositRequests: React.FC<{onAction: () => void}> = ({onAction}) => {
             onAction(); // This will trigger a re-fetch
         } catch (error) {
             console.error("Failed to process deposit:", error);
-            alert("Action failed.");
+            alert("فشل الإجراء.");
         }
     };
     
-    const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'Unknown User';
+    const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || 'مستخدم غير معروف';
     
     return (
         <div className="space-y-6 animate-fade-in">
-             <h2 className="text-3xl font-bold text-text-main">Pending Deposit Requests</h2>
+             <h2 className="text-3xl font-bold text-text-main">طلبات الإيداع المعلقة</h2>
              <Card>
-                {loading ? <p>Loading requests...</p> : requests.length > 0 ? (
+                {loading ? <p>جاري تحميل الطلبات...</p> : requests.length > 0 ? (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left text-text-secondary">
+                        <table className="w-full text-sm text-right text-text-secondary">
                             <thead className="text-xs text-text-main uppercase bg-secondary">
                                 <tr>
-                                    <th scope="col" className="px-6 py-3">User</th>
-                                    <th scope="col" className="px-6 py-3">Amount</th>
-                                    <th scope="col" className="px-6 py-3">Date</th>
-                                    <th scope="col" className="px-6 py-3">Proof</th>
-                                    <th scope="col" className="px-6 py-3">Actions</th>
+                                    <th scope="col" className="px-6 py-3">المستخدم</th>
+                                    <th scope="col" className="px-6 py-3">المبلغ</th>
+                                    <th scope="col" className="px-6 py-3">التاريخ</th>
+                                    <th scope="col" className="px-6 py-3">الإثبات</th>
+                                    <th scope="col" className="px-6 py-3">الإجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -100,8 +102,8 @@ const DepositRequests: React.FC<{onAction: () => void}> = ({onAction}) => {
                                     <tr key={req.id} className="border-b border-gray-700 hover:bg-secondary">
                                         <td className="px-6 py-4 font-medium text-text-main">{getUserName(req.userId)}</td>
                                         <td className="px-6 py-4 text-green-400 font-bold">${req.amount}</td>
-                                        <td className="px-6 py-4">{new Date(req.date).toLocaleString()}</td>
-                                        <td className="px-6 py-4"><Button variant="secondary" onClick={() => setSelectedImage(req.proof || null)}>View</Button></td>
+                                        <td className="px-6 py-4">{new Date(req.date).toLocaleString('ar-EG')}</td>
+                                        <td className="px-6 py-4"><Button variant="secondary" onClick={() => setSelectedImage(req.proof || null)}>عرض</Button></td>
                                         <td className="px-6 py-4 flex gap-2">
                                             <button onClick={() => handleAction(req.id, 'approve')} className="text-green-400 hover:text-green-300"><CheckCircleIcon className="w-6 h-6"/></button>
                                             <button onClick={() => handleAction(req.id, 'reject')} className="text-red-400 hover:text-red-300"><XCircleIcon className="w-6 h-6"/></button>
@@ -111,9 +113,9 @@ const DepositRequests: React.FC<{onAction: () => void}> = ({onAction}) => {
                             </tbody>
                         </table>
                     </div>
-                ) : <p>No pending deposit requests.</p>}
+                ) : <p>لا توجد طلبات إيداع معلقة.</p>}
              </Card>
-             <Modal isOpen={!!selectedImage} onClose={() => setSelectedImage(null)} title="Deposit Proof">
+             <Modal isOpen={!!selectedImage} onClose={() => setSelectedImage(null)} title="إثبات الإيداع">
                 <img src={selectedImage || ''} alt="Deposit proof" className="w-full h-auto rounded-lg"/>
              </Modal>
         </div>
@@ -132,13 +134,13 @@ const ManagePackages: React.FC = () => {
     }, []);
 
     const handleDelete = async (id: string) => {
-        if (window.confirm('Are you sure you want to delete this package?')) {
+        if (window.confirm('هل أنت متأكد أنك تريد حذف هذه الباقة؟')) {
             await api.deletePackage(id);
             fetchPackages();
         }
     };
     
-    const handleAdd = async () => {
+    constconst handleAdd = async () => {
         await api.addPackage(newPackage);
         fetchPackages();
         setModalOpen(false);
@@ -147,28 +149,28 @@ const ManagePackages: React.FC = () => {
     
     return (
         <div className="space-y-6 animate-fade-in">
-             <h2 className="text-3xl font-bold text-text-main">Manage Investment Packages</h2>
-             <Button onClick={() => setModalOpen(true)}>Add New Package</Button>
+             <h2 className="text-3xl font-bold text-text-main">إدارة باقات الاستثمار</h2>
+             <Button onClick={() => setModalOpen(true)}>إضافة باقة جديدة</Button>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {packages.map(pkg => (
                     <Card key={pkg.id}>
                         <h3 className="text-xl font-bold text-primary">{pkg.name}</h3>
-                        <p>Profit: {pkg.dailyProfitPercent}% daily</p>
-                        <p>Range: ${pkg.minInvestment} - ${pkg.maxInvestment}</p>
-                        <p>Duration: {pkg.durationDays} days</p>
-                        <Button variant="danger" className="mt-4" onClick={() => handleDelete(pkg.id)}>Delete</Button>
+                        <p>الربح: {pkg.dailyProfitPercent}% يومي</p>
+                        <p>النطاق: ${pkg.minInvestment} - ${pkg.maxInvestment}</p>
+                        <p>المدة: {pkg.durationDays} أيام</p>
+                        <Button variant="danger" className="mt-4" onClick={() => handleDelete(pkg.id)}>حذف</Button>
                     </Card>
                 ))}
              </div>
-             <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="Add New Package">
+             <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="إضافة باقة جديدة">
                 {/* Form for new package */}
                 <div className="space-y-4">
-                    <input type="text" placeholder="Package Name" value={newPackage.name} onChange={e => setNewPackage({...newPackage, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="number" placeholder="Min Investment" value={newPackage.minInvestment} onChange={e => setNewPackage({...newPackage, minInvestment: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="number" placeholder="Max Investment" value={newPackage.maxInvestment} onChange={e => setNewPackage({...newPackage, maxInvestment: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="number" placeholder="Daily Profit %" value={newPackage.dailyProfitPercent} onChange={e => setNewPackage({...newPackage, dailyProfitPercent: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="number" placeholder="Duration (Days)" value={newPackage.durationDays} onChange={e => setNewPackage({...newPackage, durationDays: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <Button onClick={handleAdd} className="w-full">Add Package</Button>
+                    <input type="text" placeholder="اسم الباقة" value={newPackage.name} onChange={e => setNewPackage({...newPackage, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <input type="number" placeholder="أقل استثمار" value={newPackage.minInvestment} onChange={e => setNewPackage({...newPackage, minInvestment: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <input type="number" placeholder="أقصى استثمار" value={newPackage.maxInvestment} onChange={e => setNewPackage({...newPackage, maxInvestment: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <input type="number" placeholder="الربح اليومي %" value={newPackage.dailyProfitPercent} onChange={e => setNewPackage({...newPackage, dailyProfitPercent: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <input type="number" placeholder="المدة (أيام)" value={newPackage.durationDays} onChange={e => setNewPackage({...newPackage, durationDays: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <Button onClick={handleAdd} className="w-full">إضافة باقة</Button>
                 </div>
              </Modal>
         </div>
@@ -195,21 +197,21 @@ const ManageMethods: React.FC = () => {
 
     return (
         <div className="space-y-6 animate-fade-in">
-             <h2 className="text-3xl font-bold text-text-main">Manage Deposit Methods</h2>
-             <Button onClick={() => setModalOpen(true)}>Add New Method</Button>
+             <h2 className="text-3xl font-bold text-text-main">إدارة طرق الإيداع</h2>
+             <Button onClick={() => setModalOpen(true)}>إضافة طريقة جديدة</Button>
              <Card>
                 {methods.map(method => (
                     <div key={method.id} className="p-3 bg-secondary rounded-md mb-2">
                         <p className="font-bold text-text-main">{method.name}</p>
-                        <p className="text-primary font-mono">{method.address}</p>
+                        <p className="text-primary font-mono text-left">{method.address}</p>
                     </div>
                 ))}
              </Card>
-             <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="Add New Deposit Method">
+             <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="إضافة طريقة إيداع جديدة">
                  <div className="space-y-4">
-                    <input type="text" placeholder="Method Name" value={newMethod.name} onChange={e => setNewMethod({...newMethod, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="text" placeholder="Wallet Address" value={newMethod.address} onChange={e => setNewMethod({...newMethod, address: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <Button onClick={handleAdd} className="w-full">Add Method</Button>
+                    <input type="text" placeholder="اسم الطريقة" value={newMethod.name} onChange={e => setNewMethod({...newMethod, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <input type="text" placeholder="عنوان المحفظة" value={newMethod.address} onChange={e => setNewMethod({...newMethod, address: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <Button onClick={handleAdd} className="w-full">إضافة طريقة</Button>
                 </div>
              </Modal>
         </div>
@@ -222,10 +224,10 @@ export const AdminPortal: React.FC = () => {
     const forceRefresh = () => setRefreshKey(k => k + 1);
 
     const tabs = [
-        { id: 'dashboard', label: 'Dashboard' },
-        { id: 'deposits', label: 'Deposit Requests' },
-        { id: 'packages', label: 'Manage Packages' },
-        { id: 'methods', label: 'Payment Methods' },
+        { id: 'dashboard', label: 'لوحة التحكم' },
+        { id: 'deposits', label: 'طلبات الإيداع' },
+        { id: 'packages', label: 'إدارة الباقات' },
+        { id: 'methods', label: 'طرق الدفع' },
     ];
 
     return (

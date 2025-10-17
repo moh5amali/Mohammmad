@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { DollarSignIcon } from './SharedComponents';
 import { UserRole } from '../types';
@@ -14,20 +15,18 @@ const Header: React.FC<Omit<LayoutProps, 'children'>> = ({ isLoggedIn, userRole,
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-2">
                 <DollarSignIcon className="w-8 h-8 text-primary" />
-                <h1 className="text-2xl font-bold text-white">USDT<span className="text-primary">Wealth</span></h1>
+                <h1 className="text-2xl font-bold text-white">USDT<span className="text-primary">لنمو الثروة</span></h1>
             </div>
             {isLoggedIn && (
                 <div className="flex items-center gap-4">
                      <span className="text-sm font-semibold text-text-main hidden sm:block">
-                        {/* FIX: Use UserRole enum for comparison. */}
-                        {userRole === UserRole.ADMIN ? 'Admin Panel' : 'User Dashboard'}
+                        {userRole === UserRole.ADMIN ? 'لوحة تحكم المشرف' : 'لوحة تحكم المستخدم'}
                     </span>
                     <button 
                         onClick={onToggleRole}
                         className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 text-sm"
                     >
-                        {/* FIX: Use UserRole enum for comparison. */}
-                        Switch to {userRole === UserRole.ADMIN ? 'User' : 'Admin'} View
+                        التبديل إلى عرض {userRole === UserRole.ADMIN ? 'المستخدم' : 'المشرف'}
                     </button>
                 </div>
             )}
@@ -38,7 +37,7 @@ const Header: React.FC<Omit<LayoutProps, 'children'>> = ({ isLoggedIn, userRole,
 const Footer: React.FC = () => (
     <footer className="bg-secondary-light mt-12">
         <div className="container mx-auto px-6 py-4 text-center text-text-secondary">
-            <p>&copy; {new Date().getFullYear()} USDT Wealth Growth. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} USDT لنمو الثروة. جميع الحقوق محفوظة.</p>
         </div>
     </footer>
 );

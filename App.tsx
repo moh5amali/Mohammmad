@@ -25,8 +25,8 @@ const App: React.FC = () => {
             ) : (
                 // A landing page component would go here for logged-out users
                 <div className="text-center p-10">
-                    <h1 className="text-4xl font-bold text-white">Welcome to USDT Wealth Growth</h1>
-                    <p className="text-text-secondary mt-4">Please log in to continue.</p>
+                    <h1 className="text-4xl font-bold text-white">مرحبًا بكم في USDT لنمو الثروة</h1>
+                    <p className="text-text-secondary mt-4">الرجاء تسجيل الدخول للمتابعة.</p>
                 </div>
             )}
         </Layout>
