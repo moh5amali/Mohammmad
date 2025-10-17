@@ -4,7 +4,7 @@ import * as api from './services/mockApi';
 import { Layout } from './components/Layout';
 import { UserPortal } from './components/UserPortal';
 import { AdminPortal } from './pages/AdminPortal';
-import { Card, Button, Spinner } from './components/SharedComponents';
+import { Card, Button, Spinner, DollarSignIcon } from './components/SharedComponents';
 
 // Initialize mock data when app loads
 api.initializeData();
@@ -12,6 +12,7 @@ api.initializeData();
 const AuthFormCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="min-h-screen bg-secondary text-text-main flex items-center justify-center p-4 animate-fade-in">
         <Card className="w-full max-w-sm">
+            <DollarSignIcon className="w-16 h-16 text-primary mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-center text-white mb-6">{title}</h2>
             {children}
         </Card>
