@@ -54,18 +54,52 @@ const getDefaultData = (): AppDB => {
 let DB: AppDB;
 
 const loadDB = () => {
+    let dbData: AppDB;
     try {
         const data = localStorage.getItem(DB_KEY);
-        DB = data ? JSON.parse(data) : getDefaultData();
+        dbData = data ? JSON.parse(data) : getDefaultData();
     } catch (e) {
-        console.error("Failed to load DB from localStorage", e);
-        DB = getDefaultData();
+        console.error("Failed to load DB from localStorage, using defaults.", e);
+        dbData = getDefaultData();
     }
+
+    // --- FIX START ---
+    // Ensure admin user always exists and has the correct password.
+    const adminUsername = 'm';
+    const adminPassword = '1029';
+    let adminUser = dbData.users.find(u => u.username === adminUsername && u.role === UserRole.ADMIN);
+
+    let needsSave = false;
+    if (adminUser) {
+        // Admin exists, make sure password is correct
+        if (adminUser.password !== adminPassword) {
+            adminUser.password = adminPassword;
+            needsSave = true;
+            console.log('Admin password has been corrected.');
+        }
+    } else {
+        // Admin does not exist, so let's add them from the defaults.
+        const defaultAdmin = getDefaultData().users.find(u => u.username === adminUsername);
+        if (defaultAdmin) {
+            dbData.users.push(defaultAdmin);
+            needsSave = true;
+            console.log('Admin user has been re-created.');
+        }
+    }
+    
+    DB = dbData; 
+
+    if (needsSave) {
+        saveDB(); 
+    }
+    // --- FIX END ---
 };
 
 const saveDB = () => {
     try {
-        localStorage.setItem(DB_KEY, JSON.stringify(DB));
+        if (DB) {
+            localStorage.setItem(DB_KEY, JSON.stringify(DB));
+        }
     } catch (e) {
         console.error("Failed to save DB to localStorage", e);
     }
