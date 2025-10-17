@@ -194,6 +194,7 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
     const [error, setError] = useState('');
     const [methods, setMethods] = useState<DepositMethod[]>([]);
     const [selectedMethod, setSelectedMethod] = useState<DepositMethod | null>(null);
+    const [copySuccess, setCopySuccess] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -203,6 +204,7 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
             setProof(null);
             setProofPreview(null);
             setError('');
+            setCopySuccess('');
         }
     }, [isOpen]);
     
@@ -240,6 +242,13 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
         }
     };
 
+    const handleCopy = (address: string) => {
+        navigator.clipboard.writeText(address).then(() => {
+            setCopySuccess('تم النسخ!');
+            setTimeout(() => setCopySuccess(''), 2000);
+        });
+    };
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="إيداع USDT">
             {!selectedMethod ? (
@@ -256,8 +265,17 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
                 <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-text-main">الخطوة 2: تفاصيل الإيداع</h3>
                     <div className="p-3 bg-secondary rounded-md">
-                        <p className="text-text-secondary">أرسل USDT الخاص بك إلى العنوان التالي ({selectedMethod.name}):</p>
-                        <p className="text-primary font-mono text-lg break-all">{selectedMethod.address}</p>
+                        <p className="text-text-secondary mb-2">أرسل USDT الخاص بك إلى العنوان التالي ({selectedMethod.name}):</p>
+                        <div className="flex items-center justify-between gap-4 p-2 bg-secondary border border-gray-600 rounded-md">
+                            <p className="text-primary font-mono text-sm sm:text-base break-all">{selectedMethod.address}</p>
+                            <Button 
+                                variant="secondary"
+                                onClick={() => handleCopy(selectedMethod.address)} 
+                                className="px-3 py-1 text-xs flex-shrink-0"
+                            >
+                                {copySuccess || 'نسخ'}
+                            </Button>
+                        </div>
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-text-main">المبلغ (USDT)</label>
