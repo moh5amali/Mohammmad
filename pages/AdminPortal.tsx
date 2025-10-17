@@ -140,7 +140,7 @@ const ManagePackages: React.FC = () => {
         }
     };
     
-    constconst handleAdd = async () => {
+    const handleAdd = async () => {
         await api.addPackage(newPackage);
         fetchPackages();
         setModalOpen(false);

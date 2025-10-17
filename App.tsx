@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { UserRole } from './types';
 import { Layout } from './components/Layout';
-import { UserPortal } from './pages/UserPortal';
+import { UserPortal } from './components/UserPortal';
 import { AdminPortal } from './pages/AdminPortal';
 
 const App: React.FC = () => {
