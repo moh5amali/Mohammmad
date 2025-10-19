@@ -21,7 +21,6 @@ export interface User {
     id: string;
     username: string;
     name: string;
-    email: string;
     phone?: string;
     password?: string;
     role: UserRole;
@@ -31,16 +30,19 @@ export interface User {
     referralCode: string;
     referredBy?: string;
     lastWithdrawal?: string;
-    isEmailVerified: boolean; // Will default to true now
+    referredUserIds: string[];
+    activeInvestments: {
+        packageId: string;
+        amount: number;
+        startDate: string;
+    }[];
+    lastProfitCalculationDate?: string;
 }
 
 export interface InvestmentPackage {
     id: string;
     name: string;
-    minInvestment: number;
-    maxInvestment: number;
     dailyProfitPercent: number;
-    durationDays: number;
 }
 
 export interface Transaction {
@@ -71,7 +73,6 @@ export interface PasswordResetRequest {
     id: string;
     userId: string;
     username: string;
-    email: string;
     whatsappNumber: string;
     status: 'PENDING' | 'RESOLVED';
     date: string; // ISO string

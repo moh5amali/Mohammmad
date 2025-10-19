@@ -22,20 +22,20 @@ const getDefaultData = (): AppDB => {
     
     return {
         users: [
-            { id: adminId, username: 'm', name: 'Admin', email: 'admin@example.com', password: '1029', role: UserRole.ADMIN, balance: 0, profitBalance: 0, investedAmount: 0, referralCode: 'ADMINREF', isEmailVerified: true },
-            { id: user1Id, username: 'ahmedali', name: 'أحمد علي', email: 'user1@example.com', password: 'password123', phone: '123456789', role: UserRole.USER, balance: 1500, profitBalance: 250, investedAmount: 1000, referralCode: 'AHMED123', isEmailVerified: true },
-            { id: user2Id, username: 'fatima', name: 'فاطمة الزهراء', email: 'user2@example.com', password: 'password123', phone: '987654321', role: UserRole.USER, balance: 200, profitBalance: 50, investedAmount: 500, referralCode: 'FATIMA456', referredBy: user1Id, isEmailVerified: true },
+            { id: adminId, username: 'm', name: 'Admin', password: '1029', role: UserRole.ADMIN, balance: 0, profitBalance: 0, investedAmount: 0, referralCode: 'ADMINREF', referredUserIds: [], activeInvestments: [] },
+            { id: user1Id, username: 'ahmedali', name: 'أحمد علي', password: 'password123', phone: '123456789', role: UserRole.USER, balance: 500, profitBalance: 250, investedAmount: 1000, referralCode: 'AHMED123', referredUserIds: [user2Id], activeInvestments: [{ packageId: 'pkg-1', amount: 1000, startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() }] },
+            { id: user2Id, username: 'fatima', name: 'فاطمة الزهراء', password: 'password123', phone: '987654321', role: UserRole.USER, balance: 200, profitBalance: 50, investedAmount: 500, referralCode: 'FATIMA456', referredBy: user1Id, referredUserIds: [], activeInvestments: [{ packageId: 'pkg-1', amount: 500, startDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }] },
         ],
         packages: [
-            { id: 'pkg-1', name: 'الباقة البرونزية', minInvestment: 100, maxInvestment: 999, dailyProfitPercent: 5, durationDays: 30 },
-            { id: 'pkg-2', name: 'الباقة الفضية', minInvestment: 1000, maxInvestment: 4999, dailyProfitPercent: 7, durationDays: 45 },
-            { id: 'pkg-3', name: 'الباقة الذهبية', minInvestment: 5000, maxInvestment: 20000, dailyProfitPercent: 10, durationDays: 60 },
+            { id: 'pkg-1', name: 'الباقة البرونزية', dailyProfitPercent: 5 },
+            { id: 'pkg-2', name: 'الباقة الفضية', dailyProfitPercent: 7 },
+            { id: 'pkg-3', name: 'الباقة الذهبية', dailyProfitPercent: 10 },
         ],
         transactions: [
             { id: generateId(), userId: user1Id, type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, amount: 1000, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), depositMethodId: 'dm-1' },
             { id: generateId(), userId: user1Id, type: TransactionType.INVESTMENT, status: TransactionStatus.COMPLETED, amount: 1000, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
             { id: generateId(), userId: user1Id, type: TransactionType.PROFIT, status: TransactionStatus.COMPLETED, amount: 250, date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-             { id: generateId(), userId: user2Id, type: TransactionType.DEPOSIT, status: TransactionStatus.PENDING, amount: 500, date: new Date().toISOString(), depositMethodId: 'dm-1', proof: 'https://via.placeholder.com/300' },
+            { id: generateId(), userId: user2Id, type: TransactionType.DEPOSIT, status: TransactionStatus.PENDING, amount: 500, date: new Date().toISOString(), depositMethodId: 'dm-1', proof: 'https://via.placeholder.com/300' },
             { id: generateId(), userId: user1Id, type: TransactionType.WITHDRAWAL, status: TransactionStatus.PENDING, amount: 100, date: new Date().toISOString(), withdrawalMethodId: 'wm-1', walletAddress: 'TABC123XYZ' },
         ],
         depositMethods: [
@@ -46,7 +46,7 @@ const getDefaultData = (): AppDB => {
             { id: 'wm-2', name: 'Bank Transfer'},
         ],
         passwordResetRequests: [
-             { id: generateId(), userId: user2Id, username: 'fatima', email: 'user2@example.com', whatsappNumber: '9876543210', status: 'PENDING', date: new Date().toISOString(), currentPassword: 'password123' }
+             { id: generateId(), userId: user2Id, username: 'fatima', whatsappNumber: '9876543210', status: 'PENDING', date: new Date().toISOString(), currentPassword: 'password123' }
         ]
     };
 };
@@ -63,33 +63,29 @@ const loadDB = () => {
         dbData = getDefaultData();
     }
     
-    // --- FIX START ---
-    // Ensure passwordResetRequests array exists to prevent errors on older DB structures.
-    if (!dbData.passwordResetRequests) {
-        dbData.passwordResetRequests = [];
+    if (!dbData.passwordResetRequests) dbData.passwordResetRequests = [];
+    if (!dbData.users.every(u => u.activeInvestments)) {
+         dbData.users.forEach(u => u.activeInvestments = u.activeInvestments || []);
     }
-    // --- FIX END ---
+     if (!dbData.users.every(u => u.referredUserIds)) {
+         dbData.users.forEach(u => u.referredUserIds = u.referredUserIds || []);
+    }
 
-    // Ensure admin user always exists and has the correct password.
     const adminUsername = 'm';
     const adminPassword = '1029';
     let adminUser = dbData.users.find(u => u.username === adminUsername && u.role === UserRole.ADMIN);
 
     let needsSave = false;
     if (adminUser) {
-        // Admin exists, make sure password is correct
         if (adminUser.password !== adminPassword) {
             adminUser.password = adminPassword;
             needsSave = true;
-            console.log('Admin password has been corrected.');
         }
     } else {
-        // Admin does not exist, so let's add them from the defaults.
         const defaultAdmin = getDefaultData().users.find(u => u.username === adminUsername);
         if (defaultAdmin) {
             dbData.users.push(defaultAdmin);
             needsSave = true;
-            console.log('Admin user has been re-created.');
         }
     }
     
@@ -122,10 +118,17 @@ export const initializeData = () => {
     }
 }
 
-export const register = async (userData: Pick<User, 'username' | 'name' | 'email' | 'phone' | 'password'>): Promise<User> => {
+export const register = async (userData: Pick<User, 'username' | 'name' | 'phone' | 'password'>, referredByCode?: string | null): Promise<User> => {
     await delay(500);
-    if (DB.users.some(u => u.email === userData.email)) throw new Error('البريد الإلكتروني مسجل بالفعل.');
     if (DB.users.some(u => u.username === userData.username)) throw new Error('اسم المستخدم مسجل بالفعل.');
+
+    let referredBy: string | undefined = undefined;
+    if (referredByCode) {
+        const referrer = DB.users.find(u => u.referralCode === referredByCode);
+        if (referrer) {
+            referredBy = referrer.id;
+        }
+    }
 
     const newUser: User = {
         id: generateId(),
@@ -134,30 +137,38 @@ export const register = async (userData: Pick<User, 'username' | 'name' | 'email
         profitBalance: 0,
         investedAmount: 0,
         referralCode: userData.username.toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase(),
-        isEmailVerified: true, // Auto-verify users
         ...userData,
+        referredBy,
+        referredUserIds: [],
+        activeInvestments: [],
     };
     
     DB.users.push(newUser);
+
+    if (referredBy) {
+        const referrer = DB.users.find(u => u.id === referredBy);
+        if (referrer) {
+            referrer.referredUserIds.push(newUser.id);
+        }
+    }
     saveDB();
     return newUser;
 };
 
-export const login = async (usernameOrEmail: string, password?: string): Promise<User> => {
+export const login = async (username: string, password?: string): Promise<User> => {
     await delay(500);
-    const user = DB.users.find(u => (u.username === usernameOrEmail || u.email === usernameOrEmail) && u.password === password);
+    const user = DB.users.find(u => u.username === username && u.password === password);
     if (!user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة.');
     
     setLoggedInUser(user.id);
     return user;
 };
 
-export const requestPasswordReset = async (usernameOrEmail: string, whatsappNumber: string): Promise<void> => {
+export const requestPasswordReset = async (username: string, whatsappNumber: string): Promise<void> => {
     await delay(500);
-    const user = DB.users.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
+    const user = DB.users.find(u => u.username === username);
     if (!user) {
-        // Don't throw an error for security, but we can log it for debug
-        console.log(`Password reset request for non-existent user: ${usernameOrEmail}`);
+        console.log(`Password reset request for non-existent user: ${username}`);
         return;
     }
     
@@ -165,7 +176,6 @@ export const requestPasswordReset = async (usernameOrEmail: string, whatsappNumb
         id: generateId(),
         userId: user.id,
         username: user.username,
-        email: user.email,
         whatsappNumber,
         status: 'PENDING',
         date: new Date().toISOString(),
@@ -190,6 +200,50 @@ export const getLoggedInUser = (): User | null => {
     return DB.users.find(u => u.id === userId) || null;
 };
 
+const calculateDailyProfits = (user: User) => {
+    if (user.activeInvestments.length > 0) {
+        const now = new Date().getTime();
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+        
+        const firstInvestmentDate = Math.min(...user.activeInvestments.map(inv => new Date(inv.startDate).getTime()));
+        let lastCalcTime = user.lastProfitCalculationDate ? new Date(user.lastProfitCalculationDate).getTime() : firstInvestmentDate;
+
+        let profitsWereAdded = false;
+        
+        while (now - lastCalcTime >= twentyFourHours) {
+            let dailyTotalProfit = 0;
+            const profitDay = new Date(lastCalcTime + twentyFourHours);
+            
+            for (const investment of user.activeInvestments) {
+                const investmentStartTime = new Date(investment.startDate).getTime();
+                if (investmentStartTime < profitDay.getTime()) {
+                    const pkg = DB.packages.find(p => p.id === investment.packageId);
+                    if (pkg) {
+                        dailyTotalProfit += investment.amount * (pkg.dailyProfitPercent / 100);
+                    }
+                }
+            }
+
+            if (dailyTotalProfit > 0) {
+                 user.profitBalance += dailyTotalProfit;
+                 DB.transactions.unshift({
+                    id: generateId(),
+                    userId: user.id,
+                    type: TransactionType.PROFIT,
+                    status: TransactionStatus.COMPLETED,
+                    amount: dailyTotalProfit,
+                    date: profitDay.toISOString(),
+                });
+                profitsWereAdded = true;
+            }
+            lastCalcTime += twentyFourHours;
+        }
+
+        if (profitsWereAdded) {
+            user.lastProfitCalculationDate = new Date(lastCalcTime).toISOString();
+        }
+    }
+};
 
 // --- User Facing ---
 
@@ -197,6 +251,10 @@ export const getDashboardData = async (userId: string): Promise<{ user: User, tr
     await delay(300);
     const user = DB.users.find(u => u.id === userId);
     if (!user) throw new Error("User not found");
+    
+    calculateDailyProfits(user);
+    if(user.lastProfitCalculationDate) saveDB();
+
     const transactions = DB.transactions
         .filter(t => t.userId === userId)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -214,11 +272,17 @@ export const investInPackage = async (userId: string, packageId: string, amount:
     const user = DB.users.find(u => u.id === userId);
     const pkg = DB.packages.find(p => p.id === packageId);
     if (!user || !pkg) throw new Error("User or Package not found.");
-    if (amount < pkg.minInvestment || amount > pkg.maxInvestment) throw new Error(`Investment amount must be between $${pkg.minInvestment} and $${pkg.maxInvestment}.`);
     if (user.balance < amount) throw new Error("Insufficient balance.");
+    if (amount <= 0) throw new Error("Investment amount must be positive.");
     
     user.balance -= amount;
     user.investedAmount += amount;
+    user.activeInvestments.push({
+        packageId,
+        amount,
+        startDate: new Date().toISOString()
+    });
+
     DB.transactions.unshift({
         id: generateId(),
         userId,
@@ -230,8 +294,9 @@ export const investInPackage = async (userId: string, packageId: string, amount:
     
     if (user.referredBy) {
         const referrer = DB.users.find(u => u.id === user.referredBy);
-        if (referrer && DB.transactions.filter(t => t.userId === userId && t.type === TransactionType.INVESTMENT).length === 1) {
-             const bonus = amount * 0.05;
+        // Bonus on first investment only
+        if (referrer && user.activeInvestments.length === 1) {
+             const bonus = amount * 0.05; // 5% bonus
              referrer.profitBalance += bonus;
              DB.transactions.unshift({
                 id: generateId(),
@@ -304,7 +369,7 @@ export const getAdminDashboardData = async () => {
     const totalUsers = DB.users.filter(u => u.role === UserRole.USER).length;
     const totalDeposits = DB.transactions.filter(t => t.type === TransactionType.DEPOSIT && t.status === TransactionStatus.COMPLETED).reduce((sum, t) => sum + t.amount, 0);
     const totalWithdrawals = DB.transactions.filter(t => t.type === TransactionType.WITHDRAWAL && t.status === TransactionStatus.COMPLETED).reduce((sum, t) => sum + t.amount, 0);
-    const netInvested = DB.users.reduce((sum, u) => sum + u.investedAmount, 0);
+    const netInvested = DB.users.reduce((sum, u) => u.activeInvestments.reduce((invSum, inv) => invSum + inv.amount, 0), 0);
     return { totalUsers, totalDeposits, totalWithdrawals, netInvested };
 };
 
@@ -339,7 +404,6 @@ export const resolvePasswordResetRequest = async (requestId: string, newPassword
         saveDB();
     }
 };
-
 
 export const approveDeposit = async (transactionId: string): Promise<void> => {
     await delay(300);
@@ -392,6 +456,16 @@ export const addPackage = async (pkg: Omit<InvestmentPackage, 'id'>): Promise<vo
     saveDB();
 };
 
+export const updatePackage = async (id: string, data: Omit<InvestmentPackage, 'id'>): Promise<void> => {
+    await delay(200);
+    const pkg = DB.packages.find(p => p.id === id);
+    if (pkg) {
+        pkg.name = data.name;
+        pkg.dailyProfitPercent = data.dailyProfitPercent;
+        saveDB();
+    }
+};
+
 export const deletePackage = async (packageId: string): Promise<void> => {
     await delay(200);
     DB.packages = DB.packages.filter(p => p.id !== packageId);
@@ -404,6 +478,16 @@ export const addDepositMethod = async (method: Omit<DepositMethod, 'id'>): Promi
     saveDB();
 };
 
+export const updateDepositMethod = async (id: string, data: Omit<DepositMethod, 'id'>): Promise<void> => {
+    await delay(200);
+    const method = DB.depositMethods.find(m => m.id === id);
+    if (method) {
+        method.name = data.name;
+        method.address = data.address;
+        saveDB();
+    }
+};
+
 export const deleteDepositMethod = async (methodId: string): Promise<void> => {
     await delay(200);
     DB.depositMethods = DB.depositMethods.filter(m => m.id !== methodId);
@@ -414,6 +498,15 @@ export const addWithdrawalMethod = async (method: Omit<WithdrawalMethod, 'id'>):
     await delay(200);
     DB.withdrawalMethods.push({ ...method, id: generateId() });
     saveDB();
+};
+
+export const updateWithdrawalMethod = async (id: string, data: Omit<WithdrawalMethod, 'id'>): Promise<void> => {
+    await delay(200);
+    const method = DB.withdrawalMethods.find(m => m.id === id);
+    if (method) {
+        method.name = data.name;
+        saveDB();
+    }
 };
 
 export const deleteWithdrawalMethod = async (methodId: string): Promise<void> => {

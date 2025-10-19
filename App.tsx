@@ -34,6 +34,14 @@ const App: React.FC = () => {
             setIsLoading(false);
         };
         checkUser();
+
+        // Capture referral code from URL
+        const hash = window.location.hash;
+        const refMatch = hash.match(/ref=([^&]*)/);
+        if (refMatch && refMatch[1]) {
+            localStorage.setItem('referralCode', refMatch[1]);
+        }
+
     }, []);
 
     const handleLogout = () => {
@@ -47,11 +55,11 @@ const App: React.FC = () => {
         setError('');
         setMessage('');
         const form = e.target as HTMLFormElement;
-        const usernameOrEmail = (form.elements.namedItem('usernameOrEmail') as HTMLInputElement).value;
+        const username = (form.elements.namedItem('username') as HTMLInputElement).value;
         const password = (form.elements.namedItem('password') as HTMLInputElement).value;
 
         try {
-            const user = await api.login(usernameOrEmail, password);
+            const user = await api.login(username, password);
             setLoggedInUser(user);
         } catch (err: any) {
             setError(err.message);
@@ -64,12 +72,13 @@ const App: React.FC = () => {
         const form = e.target as HTMLFormElement;
         const name = (form.elements.namedItem('name') as HTMLInputElement).value;
         const username = (form.elements.namedItem('username') as HTMLInputElement).value;
-        const email = (form.elements.namedItem('email') as HTMLInputElement).value;
         const phone = (form.elements.namedItem('phone') as HTMLInputElement).value;
         const password = (form.elements.namedItem('password') as HTMLInputElement).value;
+        const referredByCode = localStorage.getItem('referralCode');
 
         try {
-            await api.register({ name, username, email, phone, password });
+            await api.register({ name, username, phone, password }, referredByCode);
+            localStorage.removeItem('referralCode'); // Clear after use
             setAuthView('login');
             setMessage('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.');
         } catch (err: any) {
@@ -82,10 +91,10 @@ const App: React.FC = () => {
         setError('');
         setMessage('');
         const form = e.target as HTMLFormElement;
-        const usernameOrEmail = (form.elements.namedItem('usernameOrEmail') as HTMLInputElement).value;
+        const username = (form.elements.namedItem('username') as HTMLInputElement).value;
         const whatsappNumber = (form.elements.namedItem('whatsapp') as HTMLInputElement).value;
         
-        await api.requestPasswordReset(usernameOrEmail, whatsappNumber);
+        await api.requestPasswordReset(username, whatsappNumber);
         
         setMessage('تم إرسال طلبك إلى الإدارة. سيتم التواصل معك عبر الواتساب.');
         setAuthView('login');
@@ -109,7 +118,7 @@ const App: React.FC = () => {
         return (
             <AuthFormCard title="تسجيل الدخول">
                 <form onSubmit={handleLogin} className="space-y-4">
-                    <input name="usernameOrEmail" type="text" placeholder="اسم المستخدم أو البريد الإلكتروني" required className={inputClass} />
+                    <input name="username" type="text" placeholder="اسم المستخدم" required className={inputClass} />
                     <input name="password" type="password" placeholder="كلمة المرور" required className={inputClass} />
                     {error && <p className="text-red-400 text-sm">{error}</p>}
                     {message && <p className="text-green-400 text-sm text-center">{message}</p>}
@@ -130,7 +139,6 @@ const App: React.FC = () => {
                 <form onSubmit={handleRegister} className="space-y-4">
                     <input name="name" type="text" placeholder="الاسم الكامل" required className={inputClass} />
                     <input name="username" type="text" placeholder="اسم المستخدم" required className={inputClass} />
-                    <input name="email" type="email" placeholder="البريد الإلكتروني" required className={inputClass} />
                     <input name="phone" type="tel" placeholder="رقم الهاتف" required className={inputClass} />
                     <input name="password" type="password" placeholder="كلمة المرور" required className={inputClass} />
                     {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -148,7 +156,7 @@ const App: React.FC = () => {
             <AuthFormCard title="استعادة كلمة المرور">
                  <form onSubmit={handleRequestReset} className="space-y-4">
                     <p className="text-text-secondary text-center text-sm">أدخل بيانات حسابك ورقم واتساب. ستتواصل معك الإدارة خلال 24 ساعة لاستعادة كلمة المرور.</p>
-                    <input name="usernameOrEmail" type="text" placeholder="اسم المستخدم أو البريد الإلكتروني" required className={inputClass} />
+                    <input name="username" type="text" placeholder="اسم المستخدم" required className={inputClass} />
                     <input name="whatsapp" type="tel" placeholder="رقم الواتساب" required className={inputClass} />
                     {error && <p className="text-red-400 text-sm">{error}</p>}
                     <Button type="submit" className="w-full">إرسال الطلب</Button>

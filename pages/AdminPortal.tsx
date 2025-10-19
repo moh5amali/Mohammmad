@@ -296,13 +296,23 @@ const PasswordResetRequests: React.FC<{ onAction: () => void }> = ({ onAction })
 const ManagePackages: React.FC = () => {
     const [packages, setPackages] = useState<InvestmentPackage[]>([]);
     const [isModalOpen, setModalOpen] = useState(false);
-    const [newPackage, setNewPackage] = useState({ name: '', minInvestment: 100, maxInvestment: 1000, dailyProfitPercent: 10, durationDays: 30 });
+    const [editingPackage, setEditingPackage] = useState<InvestmentPackage | null>(null);
+    const [packageData, setPackageData] = useState({ name: '', dailyProfitPercent: 10 });
 
     const fetchPackages = () => api.getInvestmentPackages().then(setPackages);
 
     useEffect(() => {
         fetchPackages();
     }, []);
+    
+    useEffect(() => {
+        if (editingPackage) {
+            setPackageData({ name: editingPackage.name, dailyProfitPercent: editingPackage.dailyProfitPercent });
+            setModalOpen(true);
+        } else {
+            setPackageData({ name: '', dailyProfitPercent: 10 });
+        }
+    }, [editingPackage]);
 
     const handleDelete = async (id: string) => {
         if (window.confirm('هل أنت متأكد أنك تريد حذف هذه الباقة؟')) {
@@ -311,11 +321,20 @@ const ManagePackages: React.FC = () => {
         }
     };
     
-    const handleAdd = async () => {
-        await api.addPackage(newPackage);
+    const handleSave = async () => {
+        if (!packageData.name) return;
+        if (editingPackage) {
+            await api.updatePackage(editingPackage.id, packageData);
+        } else {
+            await api.addPackage(packageData);
+        }
         fetchPackages();
+        closeModal();
+    };
+
+    const closeModal = () => {
         setModalOpen(false);
-        setNewPackage({ name: '', minInvestment: 100, maxInvestment: 1000, dailyProfitPercent: 10, durationDays: 30 });
+        setEditingPackage(null);
     };
     
     return (
@@ -327,20 +346,18 @@ const ManagePackages: React.FC = () => {
                     <Card key={pkg.id}>
                         <h3 className="text-xl font-bold text-primary">{pkg.name}</h3>
                         <p>الربح: {pkg.dailyProfitPercent}% يومي</p>
-                        <p>النطاق: ${pkg.minInvestment} - ${pkg.maxInvestment}</p>
-                        <p>المدة: {pkg.durationDays} أيام</p>
-                        <Button variant="danger" className="mt-4" onClick={() => handleDelete(pkg.id)}>حذف</Button>
+                        <div className="flex gap-2 mt-4">
+                            <Button variant="secondary" onClick={() => setEditingPackage(pkg)}>تعديل</Button>
+                            <Button variant="danger" onClick={() => handleDelete(pkg.id)}>حذف</Button>
+                        </div>
                     </Card>
                 ))}
              </div>
-             <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="إضافة باقة جديدة">
+             <Modal isOpen={isModalOpen} onClose={closeModal} title={editingPackage ? "تعديل الباقة" : "إضافة باقة جديدة"}>
                 <div className="space-y-4">
-                    <input type="text" placeholder="اسم الباقة" value={newPackage.name} onChange={e => setNewPackage({...newPackage, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="number" placeholder="أقل استثمار" value={newPackage.minInvestment} onChange={e => setNewPackage({...newPackage, minInvestment: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="number" placeholder="أقصى استثمار" value={newPackage.maxInvestment} onChange={e => setNewPackage({...newPackage, maxInvestment: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="number" placeholder="الربح اليومي %" value={newPackage.dailyProfitPercent} onChange={e => setNewPackage({...newPackage, dailyProfitPercent: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="number" placeholder="المدة (أيام)" value={newPackage.durationDays} onChange={e => setNewPackage({...newPackage, durationDays: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <Button onClick={handleAdd} className="w-full">إضافة باقة</Button>
+                    <input type="text" placeholder="اسم الباقة" value={packageData.name} onChange={e => setPackageData({...packageData, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <input type="number" placeholder="الربح اليومي %" value={packageData.dailyProfitPercent} onChange={e => setPackageData({...packageData, dailyProfitPercent: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <Button onClick={handleSave} className="w-full">{editingPackage ? "حفظ التعديلات" : "إضافة باقة"}</Button>
                 </div>
              </Modal>
         </div>
@@ -349,8 +366,9 @@ const ManagePackages: React.FC = () => {
 
 const ManageDepositMethods: React.FC = () => {
     const [methods, setMethods] = useState<DepositMethod[]>([]);
-    const [newMethod, setNewMethod] = useState({name: 'USDT (TRC20)', address: ''});
+    const [methodData, setMethodData] = useState({name: 'USDT (TRC20)', address: ''});
     const [isModalOpen, setModalOpen] = useState(false);
+    const [editingMethod, setEditingMethod] = useState<DepositMethod | null>(null);
 
     const fetchMethods = () => api.getDepositMethods().then(setMethods);
 
@@ -358,12 +376,24 @@ const ManageDepositMethods: React.FC = () => {
         fetchMethods();
     }, []);
 
-    const handleAdd = async () => {
-        if (!newMethod.name || !newMethod.address) return;
-        await api.addDepositMethod(newMethod);
+    useEffect(() => {
+        if (editingMethod) {
+            setMethodData({ name: editingMethod.name, address: editingMethod.address });
+            setModalOpen(true);
+        } else {
+            setMethodData({name: 'USDT (TRC20)', address: ''});
+        }
+    }, [editingMethod]);
+
+    const handleSave = async () => {
+        if (!methodData.name || !methodData.address) return;
+        if (editingMethod) {
+            await api.updateDepositMethod(editingMethod.id, methodData);
+        } else {
+            await api.addDepositMethod(methodData);
+        }
         fetchMethods();
-        setModalOpen(false);
-        setNewMethod({name: 'USDT (TRC20)', address: ''});
+        closeModal();
     };
 
     const handleDelete = async (id: string) => {
@@ -372,6 +402,11 @@ const ManageDepositMethods: React.FC = () => {
             fetchMethods();
         }
     }
+    
+    const closeModal = () => {
+        setModalOpen(false);
+        setEditingMethod(null);
+    };
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -379,20 +414,23 @@ const ManageDepositMethods: React.FC = () => {
              <Button onClick={() => setModalOpen(true)}>إضافة طريقة جديدة</Button>
              <Card>
                 {methods.map(method => (
-                    <div key={method.id} className="p-3 bg-secondary rounded-md mb-2 flex justify-between items-center">
+                    <div key={method.id} className="p-3 bg-secondary rounded-md mb-2 flex justify-between items-center flex-wrap gap-2">
                         <div>
                             <p className="font-bold text-text-main">{method.name}</p>
-                            <p className="text-primary font-mono text-left">{method.address}</p>
+                            <p className="text-primary font-mono text-left break-all">{method.address}</p>
                         </div>
-                        <Button variant="danger" onClick={() => handleDelete(method.id)}>حذف</Button>
+                        <div className="flex gap-2">
+                            <Button variant="secondary" onClick={() => setEditingMethod(method)}>تعديل</Button>
+                            <Button variant="danger" onClick={() => handleDelete(method.id)}>حذف</Button>
+                        </div>
                     </div>
                 ))}
              </Card>
-             <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="إضافة طريقة إيداع جديدة">
+             <Modal isOpen={isModalOpen} onClose={closeModal} title={editingMethod ? "تعديل طريقة الإيداع" : "إضافة طريقة إيداع جديدة"}>
                  <div className="space-y-4">
-                    <input type="text" placeholder="اسم الطريقة" value={newMethod.name} onChange={e => setNewMethod({...newMethod, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <input type="text" placeholder="عنوان المحفظة" value={newMethod.address} onChange={e => setNewMethod({...newMethod, address: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <Button onClick={handleAdd} className="w-full">إضافة طريقة</Button>
+                    <input type="text" placeholder="اسم الطريقة" value={methodData.name} onChange={e => setMethodData({...methodData, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <input type="text" placeholder="عنوان المحفظة" value={methodData.address} onChange={e => setMethodData({...methodData, address: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <Button onClick={handleSave} className="w-full">{editingMethod ? "حفظ التعديلات" : "إضافة طريقة"}</Button>
                 </div>
              </Modal>
         </div>
@@ -401,8 +439,9 @@ const ManageDepositMethods: React.FC = () => {
 
 const ManageWithdrawalMethods: React.FC = () => {
     const [methods, setMethods] = useState<WithdrawalMethod[]>([]);
-    const [newMethodName, setNewMethodName] = useState('');
+    const [methodData, setMethodData] = useState({ name: '' });
     const [isModalOpen, setModalOpen] = useState(false);
+    const [editingMethod, setEditingMethod] = useState<WithdrawalMethod | null>(null);
 
     const fetchMethods = () => api.getWithdrawalMethods().then(setMethods);
 
@@ -410,12 +449,25 @@ const ManageWithdrawalMethods: React.FC = () => {
         fetchMethods();
     }, []);
 
-    const handleAdd = async () => {
-        if (!newMethodName) return;
-        await api.addWithdrawalMethod({ name: newMethodName });
+    useEffect(() => {
+        if (editingMethod) {
+            setMethodData({ name: editingMethod.name });
+            setModalOpen(true);
+        } else {
+            setMethodData({ name: '' });
+        }
+    }, [editingMethod]);
+
+
+    const handleSave = async () => {
+        if (!methodData.name) return;
+        if (editingMethod) {
+            await api.updateWithdrawalMethod(editingMethod.id, methodData);
+        } else {
+            await api.addWithdrawalMethod(methodData);
+        }
         fetchMethods();
-        setModalOpen(false);
-        setNewMethodName('');
+        closeModal();
     };
     
     const handleDelete = async (id: string) => {
@@ -423,6 +475,11 @@ const ManageWithdrawalMethods: React.FC = () => {
             await api.deleteWithdrawalMethod(id);
             fetchMethods();
         }
+    };
+    
+    const closeModal = () => {
+        setModalOpen(false);
+        setEditingMethod(null);
     };
 
     return (
@@ -433,14 +490,17 @@ const ManageWithdrawalMethods: React.FC = () => {
                 {methods.map(method => (
                     <div key={method.id} className="p-3 bg-secondary rounded-md mb-2 flex justify-between items-center">
                         <p className="font-bold text-text-main">{method.name}</p>
-                        <Button variant="danger" onClick={() => handleDelete(method.id)}>حذف</Button>
+                         <div className="flex gap-2">
+                            <Button variant="secondary" onClick={() => setEditingMethod(method)}>تعديل</Button>
+                            <Button variant="danger" onClick={() => handleDelete(method.id)}>حذف</Button>
+                        </div>
                     </div>
                 ))}
              </Card>
-             <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title="إضافة طريقة سحب جديدة">
+             <Modal isOpen={isModalOpen} onClose={closeModal} title={editingMethod ? "تعديل طريقة السحب" : "إضافة طريقة سحب جديدة"}>
                  <div className="space-y-4">
-                    <input type="text" placeholder="اسم الطريقة (مثال: USDT TRC20)" value={newMethodName} onChange={e => setNewMethodName(e.target.value)} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
-                    <Button onClick={handleAdd} className="w-full">إضافة طريقة</Button>
+                    <input type="text" placeholder="اسم الطريقة (مثال: USDT TRC20)" value={methodData.name} onChange={e => setMethodData({ name: e.target.value })} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <Button onClick={handleSave} className="w-full">{editingMethod ? "حفظ التعديلات" : "إضافة طريقة"}</Button>
                 </div>
              </Modal>
         </div>

@@ -53,7 +53,7 @@ const UserDashboard: React.FC<{ user: User | null; onAction: () => void }> = ({ 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard title="الرصيد الإجمالي" value={`$${userData.balance.toFixed(2)}`} icon={<DollarSignIcon className="w-6 h-6 text-white"/>} colorClass="bg-blue-500" />
                 <StatCard title="رصيد الأرباح" value={`$${userData.profitBalance.toFixed(2)}`} icon={<ArrowUpIcon className="w-6 h-6 text-white"/>} colorClass="bg-green-500" />
-                <StatCard title="إجمالي الاستثمار" value={`$${userData.investedAmount.toFixed(2)}`} icon={<ChartBarIcon className="w-6 h-6 text-white"/>} colorClass="bg-primary" />
+                <StatCard title="إجمالي المستثمر" value={`$${userData.investedAmount.toFixed(2)}`} icon={<ChartBarIcon className="w-6 h-6 text-white"/>} colorClass="bg-primary" />
                 <StatCard title="كود الإحالة" value={userData.referralCode} icon={<UsersIcon className="w-6 h-6 text-white"/>} colorClass="bg-yellow-500" />
             </div>
 
@@ -100,7 +100,10 @@ const InvestmentPlans: React.FC<{ user: User | null; onInvest: () => void }> = (
     }, []);
 
     const handleInvest = async () => {
-        if (!user || !selectedPackage) return;
+        if (!user || !selectedPackage || investmentAmount <= 0) {
+            setError("الرجاء إدخال مبلغ استثمار صالح.");
+            return;
+        }
         setError('');
         setIsLoading(true);
         try {
@@ -109,7 +112,7 @@ const InvestmentPlans: React.FC<{ user: User | null; onInvest: () => void }> = (
             setInvestmentAmount(0);
             onInvest();
         } catch (e: any) {
-            setError(e.toString());
+            setError(e.message || 'حدث خطأ ما.');
         } finally {
             setIsLoading(false);
         }
@@ -124,13 +127,9 @@ const InvestmentPlans: React.FC<{ user: User | null; onInvest: () => void }> = (
                         <div>
                             <h3 className="text-2xl font-bold text-primary">{pkg.name}</h3>
                             <p className="text-4xl font-bold my-4 text-white">{pkg.dailyProfitPercent}% <span className="text-lg font-normal text-text-secondary">ربح يومي</span></p>
-                            <ul className="space-y-2 text-text-secondary">
-                                <li>المدة: {pkg.durationDays} أيام</li>
-                                <li>أقل استثمار: ${pkg.minInvestment}</li>
-                                <li>أقصى استثمار: ${pkg.maxInvestment}</li>
-                            </ul>
+                            <p className="text-text-secondary">الأرباح تضاف إلى رصيد الأرباح كل 24 ساعة.</p>
                         </div>
-                        <Button className="mt-6 w-full" onClick={() => { setSelectedPackage(pkg); setInvestmentAmount(pkg.minInvestment); }}>
+                        <Button className="mt-6 w-full" onClick={() => { setSelectedPackage(pkg); setInvestmentAmount(0); }}>
                             استثمر الآن
                         </Button>
                     </Card>
@@ -144,10 +143,9 @@ const InvestmentPlans: React.FC<{ user: User | null; onInvest: () => void }> = (
                         <input
                             type="number"
                             id="amount"
-                            value={investmentAmount}
+                            value={investmentAmount || ''}
                             onChange={(e) => setInvestmentAmount(Number(e.target.value))}
-                            min={selectedPackage?.minInvestment}
-                            max={selectedPackage?.maxInvestment}
+                            placeholder="أدخل مبلغ الاستثمار"
                             className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary"
                         />
                     </div>
@@ -163,22 +161,32 @@ const InvestmentPlans: React.FC<{ user: User | null; onInvest: () => void }> = (
 };
 
 const ReferralPage: React.FC<{ user: User | null }> = ({ user }) => {
+    const [copyText, setCopyText] = useState('نسخ');
+
     if (!user) return null;
     const referralLink = `${window.location.origin}${window.location.pathname}#?ref=${user.referralCode}`;
     
     const copyToClipboard = () => {
-        navigator.clipboard.writeText(referralLink);
-        alert('تم نسخ رابط الإحالة!');
+        navigator.clipboard.writeText(referralLink).then(() => {
+            setCopyText('تم النسخ!');
+            setTimeout(() => setCopyText('نسخ'), 2000);
+        });
     };
 
     return (
         <div className="animate-fade-in space-y-6">
             <h2 className="text-3xl font-bold text-text-main">ادعُ واكسب</h2>
             <Card>
-                <p className="text-text-secondary">شارك رابط الإحالة الخاص بك مع الأصدقاء. عندما يقومون بالتسجيل وإجراء أول استثمار لهم، ستحصل على مكافأة بنسبة 5٪ من مبلغ استثمارهم!</p>
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 bg-secondary rounded-lg">
+                    <h3 className="text-lg font-bold text-text-main">إجمالي الدعوات</h3>
+                    <p className="text-3xl font-bold text-primary">{user.referredUserIds.length}</p>
+                </div>
+            </Card>
+            <Card>
+                <p className="text-text-secondary">شارك رابط الإحالة الخاص بك مع الأصدقاء. عندما يقومون بالتسجيل وإجراء أول استثمار لهم، ستحصل على مكافأة بنسبة 5٪ من مبلغ استثمارهم تضاف مباشرة لرصيد أرباحك!</p>
                 <div className="mt-4 p-4 bg-secondary rounded-md flex items-center justify-between">
                     <span className="text-primary font-mono text-sm sm:text-base break-all">{referralLink}</span>
-                    <Button onClick={copyToClipboard} className="mr-4 flex-shrink-0">نسخ</Button>
+                    <Button onClick={copyToClipboard} className="mr-4 flex-shrink-0">{copyText}</Button>
                 </div>
             </Card>
         </div>
@@ -235,7 +243,7 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
                 onClose();
             };
         } catch (e: any) {
-            setError(e.toString());
+            setError(e.message || 'حدث خطأ ما.');
         } finally {
             setIsLoading(false);
         }
@@ -263,6 +271,7 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
             ) : (
                 <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-text-main">الخطوة 2: تفاصيل الإيداع</h3>
+                    <p className="text-xs text-amber-400 text-center">ملاحظة: عمليات الإيداع قد تستغرق من 5 إلى 12 ساعة حتى تتم معالجتها.</p>
                     <div className="p-3 bg-secondary rounded-md">
                         <p className="text-text-secondary mb-2">أرسل USDT الخاص بك إلى العنوان التالي ({selectedMethod.name}):</p>
                         <div className="flex items-center justify-between gap-4 p-2 bg-secondary border border-gray-600 rounded-md">
@@ -331,7 +340,7 @@ const WithdrawModal: React.FC<{ isOpen: boolean; onClose: () => void; user: User
             onWithdrawSuccess();
             onClose();
         } catch (e: any) {
-            setError(e.toString());
+            setError(e.message || 'حدث خطأ ما.');
         } finally {
             setIsLoading(false);
         }
@@ -342,6 +351,7 @@ const WithdrawModal: React.FC<{ isOpen: boolean; onClose: () => void; user: User
             <div className="space-y-4">
                 <p className="text-text-secondary">رصيد الأرباح المتاح للسحب: <span className="font-bold text-green-400">${user.profitBalance.toFixed(2)}</span></p>
                 <p className="text-xs text-amber-400">الحد الأدنى للسحب هو 10$. يمكنك طلب السحب مرة كل 24 ساعة.</p>
+                 <p className="text-xs text-amber-400 text-center">ملاحظة: عمليات السحب قد تستغرق من 5 إلى 12 ساعة حتى تتم معالجتها.</p>
                 <div>
                     <label className="block text-sm font-medium text-text-main">طريقة السحب</label>
                     <select value={selectedMethodId} onChange={e => setSelectedMethodId(e.target.value)} className="w-full bg-secondary text-white p-2 rounded-md mt-1 border border-gray-600 focus:ring-primary focus:border-primary">
