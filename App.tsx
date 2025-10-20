@@ -35,11 +35,19 @@ const App: React.FC = () => {
         };
         checkUser();
 
-        // Capture referral code from URL
-        const hash = window.location.hash;
-        const refMatch = hash.match(/ref=([^&]*)/);
-        if (refMatch && refMatch[1]) {
-            localStorage.setItem('referralCode', refMatch[1]);
+        // Capture referral code from URL hash
+        try {
+            if (window.location.hash.includes('?ref=')) {
+                const params = new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')));
+                const refCode = params.get('ref');
+                if (refCode) {
+                    localStorage.setItem('referralCode', refCode);
+                    // Optionally switch to register view if referral code is present
+                    setAuthView('register');
+                }
+            }
+        } catch (e) {
+            console.error("Could not parse referral code from URL", e);
         }
 
     }, []);
@@ -94,10 +102,13 @@ const App: React.FC = () => {
         const username = (form.elements.namedItem('username') as HTMLInputElement).value;
         const whatsappNumber = (form.elements.namedItem('whatsapp') as HTMLInputElement).value;
         
-        await api.requestPasswordReset(username, whatsappNumber);
-        
-        setMessage('تم إرسال طلبك إلى الإدارة. سيتم التواصل معك عبر الواتساب.');
-        setAuthView('login');
+        try {
+            await api.requestPasswordReset(username, whatsappNumber);
+            setMessage('تم إرسال طلبك إلى الإدارة. سيتم التواصل معك عبر الواتساب.');
+            setAuthView('login');
+        } catch (err: any) {
+            setError(err.message);
+        }
     };
 
     if (isLoading) {
@@ -155,9 +166,9 @@ const App: React.FC = () => {
         return (
             <AuthFormCard title="استعادة كلمة المرور">
                  <form onSubmit={handleRequestReset} className="space-y-4">
-                    <p className="text-text-secondary text-center text-sm">أدخل بيانات حسابك ورقم واتساب. ستتواصل معك الإدارة خلال 24 ساعة لاستعادة كلمة المرور.</p>
+                    <p className="text-text-secondary text-center text-sm">أدخل اسم المستخدم ورقم الهاتف المسجل. ستتواصل معك الإدارة عبر الواتساب.</p>
                     <input name="username" type="text" placeholder="اسم المستخدم" required className={inputClass} />
-                    <input name="whatsapp" type="tel" placeholder="رقم الواتساب" required className={inputClass} />
+                    <input name="whatsapp" type="tel" placeholder="رقم الهاتف (واتساب)" required className={inputClass} />
                     {error && <p className="text-red-400 text-sm">{error}</p>}
                     <Button type="submit" className="w-full">إرسال الطلب</Button>
                     <div className="text-sm text-center text-text-secondary">

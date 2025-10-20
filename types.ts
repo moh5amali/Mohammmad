@@ -42,6 +42,7 @@ export interface User {
 export interface InvestmentPackage {
     id: string;
     name: string;
+    price: number;
     dailyProfitPercent: number;
 }
 

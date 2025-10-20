@@ -297,7 +297,7 @@ const ManagePackages: React.FC = () => {
     const [packages, setPackages] = useState<InvestmentPackage[]>([]);
     const [isModalOpen, setModalOpen] = useState(false);
     const [editingPackage, setEditingPackage] = useState<InvestmentPackage | null>(null);
-    const [packageData, setPackageData] = useState({ name: '', dailyProfitPercent: 10 });
+    const [packageData, setPackageData] = useState({ name: '', price: 100, dailyProfitPercent: 10 });
 
     const fetchPackages = () => api.getInvestmentPackages().then(setPackages);
 
@@ -307,10 +307,10 @@ const ManagePackages: React.FC = () => {
     
     useEffect(() => {
         if (editingPackage) {
-            setPackageData({ name: editingPackage.name, dailyProfitPercent: editingPackage.dailyProfitPercent });
+            setPackageData({ name: editingPackage.name, price: editingPackage.price, dailyProfitPercent: editingPackage.dailyProfitPercent });
             setModalOpen(true);
         } else {
-            setPackageData({ name: '', dailyProfitPercent: 10 });
+            setPackageData({ name: '', price: 100, dailyProfitPercent: 10 });
         }
     }, [editingPackage]);
 
@@ -339,23 +339,41 @@ const ManagePackages: React.FC = () => {
     
     return (
         <div className="space-y-6 animate-fade-in">
-             <h2 className="text-3xl font-bold text-text-main">إدارة باقات الاستثمار</h2>
-             <Button onClick={() => setModalOpen(true)}>إضافة باقة جديدة</Button>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {packages.map(pkg => (
-                    <Card key={pkg.id}>
-                        <h3 className="text-xl font-bold text-primary">{pkg.name}</h3>
-                        <p>الربح: {pkg.dailyProfitPercent}% يومي</p>
-                        <div className="flex gap-2 mt-4">
-                            <Button variant="secondary" onClick={() => setEditingPackage(pkg)}>تعديل</Button>
-                            <Button variant="danger" onClick={() => handleDelete(pkg.id)}>حذف</Button>
-                        </div>
-                    </Card>
-                ))}
+             <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold text-text-main">إدارة باقات الاستثمار</h2>
+                <Button onClick={() => setModalOpen(true)}>إضافة باقة جديدة</Button>
              </div>
+             <Card>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-right text-text-secondary">
+                        <thead className="text-xs text-text-main uppercase bg-secondary">
+                            <tr>
+                                <th scope="col" className="px-6 py-3">اسم الباقة</th>
+                                <th scope="col" className="px-6 py-3">السعر (USDT)</th>
+                                <th scope="col" className="px-6 py-3">الربح اليومي</th>
+                                <th scope="col" className="px-6 py-3 text-center">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {packages.map(pkg => (
+                                <tr key={pkg.id} className="border-b border-gray-700 hover:bg-secondary">
+                                    <td className="px-6 py-4 font-medium text-text-main">{pkg.name}</td>
+                                    <td className="px-6 py-4 text-amber-400 font-bold">${pkg.price}</td>
+                                    <td className="px-6 py-4 text-green-400 font-bold">{pkg.dailyProfitPercent}%</td>
+                                    <td className="px-6 py-4 flex justify-center gap-2">
+                                        <Button variant="secondary" className="text-xs py-1 px-3" onClick={() => setEditingPackage(pkg)}>تعديل</Button>
+                                        <Button variant="danger" className="text-xs py-1 px-3" onClick={() => handleDelete(pkg.id)}>حذف</Button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+             </Card>
              <Modal isOpen={isModalOpen} onClose={closeModal} title={editingPackage ? "تعديل الباقة" : "إضافة باقة جديدة"}>
                 <div className="space-y-4">
                     <input type="text" placeholder="اسم الباقة" value={packageData.name} onChange={e => setPackageData({...packageData, name: e.target.value})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
+                    <input type="number" placeholder="سعر الباقة (USDT)" value={packageData.price} onChange={e => setPackageData({...packageData, price: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
                     <input type="number" placeholder="الربح اليومي %" value={packageData.dailyProfitPercent} onChange={e => setPackageData({...packageData, dailyProfitPercent: Number(e.target.value)})} className="w-full bg-secondary text-white p-2 rounded-md border border-gray-600"/>
                     <Button onClick={handleSave} className="w-full">{editingPackage ? "حفظ التعديلات" : "إضافة باقة"}</Button>
                 </div>
@@ -410,21 +428,34 @@ const ManageDepositMethods: React.FC = () => {
 
     return (
         <div className="space-y-6 animate-fade-in">
-             <h2 className="text-3xl font-bold text-text-main">إدارة طرق الإيداع</h2>
-             <Button onClick={() => setModalOpen(true)}>إضافة طريقة جديدة</Button>
+            <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold text-text-main">إدارة طرق الإيداع</h2>
+                <Button onClick={() => setModalOpen(true)}>إضافة طريقة جديدة</Button>
+            </div>
              <Card>
-                {methods.map(method => (
-                    <div key={method.id} className="p-3 bg-secondary rounded-md mb-2 flex justify-between items-center flex-wrap gap-2">
-                        <div>
-                            <p className="font-bold text-text-main">{method.name}</p>
-                            <p className="text-primary font-mono text-left break-all">{method.address}</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button variant="secondary" onClick={() => setEditingMethod(method)}>تعديل</Button>
-                            <Button variant="danger" onClick={() => handleDelete(method.id)}>حذف</Button>
-                        </div>
-                    </div>
-                ))}
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-right text-text-secondary">
+                        <thead className="text-xs text-text-main uppercase bg-secondary">
+                            <tr>
+                                <th scope="col" className="px-6 py-3">اسم الطريقة</th>
+                                <th scope="col" className="px-6 py-3">العنوان</th>
+                                <th scope="col" className="px-6 py-3 text-center">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {methods.map(method => (
+                                <tr key={method.id} className="border-b border-gray-700 hover:bg-secondary">
+                                    <td className="px-6 py-4 font-medium text-text-main">{method.name}</td>
+                                    <td className="px-6 py-4 font-mono text-primary text-xs break-all">{method.address}</td>
+                                    <td className="px-6 py-4 flex justify-center gap-2">
+                                        <Button variant="secondary" className="text-xs py-1 px-3" onClick={() => setEditingMethod(method)}>تعديل</Button>
+                                        <Button variant="danger" className="text-xs py-1 px-3" onClick={() => handleDelete(method.id)}>حذف</Button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
              </Card>
              <Modal isOpen={isModalOpen} onClose={closeModal} title={editingMethod ? "تعديل طريقة الإيداع" : "إضافة طريقة إيداع جديدة"}>
                  <div className="space-y-4">
@@ -484,18 +515,32 @@ const ManageWithdrawalMethods: React.FC = () => {
 
     return (
         <div className="space-y-6 animate-fade-in">
-             <h2 className="text-3xl font-bold text-text-main">إدارة طرق السحب</h2>
-             <Button onClick={() => setModalOpen(true)}>إضافة طريقة جديدة</Button>
+            <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold text-text-main">إدارة طرق السحب</h2>
+                <Button onClick={() => setModalOpen(true)}>إضافة طريقة جديدة</Button>
+            </div>
              <Card>
-                {methods.map(method => (
-                    <div key={method.id} className="p-3 bg-secondary rounded-md mb-2 flex justify-between items-center">
-                        <p className="font-bold text-text-main">{method.name}</p>
-                         <div className="flex gap-2">
-                            <Button variant="secondary" onClick={() => setEditingMethod(method)}>تعديل</Button>
-                            <Button variant="danger" onClick={() => handleDelete(method.id)}>حذف</Button>
-                        </div>
-                    </div>
-                ))}
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-right text-text-secondary">
+                        <thead className="text-xs text-text-main uppercase bg-secondary">
+                            <tr>
+                                <th scope="col" className="px-6 py-3">اسم الطريقة</th>
+                                <th scope="col" className="px-6 py-3 text-center">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {methods.map(method => (
+                                <tr key={method.id} className="border-b border-gray-700 hover:bg-secondary">
+                                    <td className="px-6 py-4 font-medium text-text-main">{method.name}</td>
+                                    <td className="px-6 py-4 flex justify-center gap-2">
+                                        <Button variant="secondary" className="text-xs py-1 px-3" onClick={() => setEditingMethod(method)}>تعديل</Button>
+                                        <Button variant="danger" className="text-xs py-1 px-3" onClick={() => handleDelete(method.id)}>حذف</Button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
              </Card>
              <Modal isOpen={isModalOpen} onClose={closeModal} title={editingMethod ? "تعديل طريقة السحب" : "إضافة طريقة سحب جديدة"}>
                  <div className="space-y-4">

@@ -27,9 +27,9 @@ const getDefaultData = (): AppDB => {
             { id: user2Id, username: 'fatima', name: 'فاطمة الزهراء', password: 'password123', phone: '987654321', role: UserRole.USER, balance: 200, profitBalance: 50, investedAmount: 500, referralCode: 'FATIMA456', referredBy: user1Id, referredUserIds: [], activeInvestments: [{ packageId: 'pkg-1', amount: 500, startDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }] },
         ],
         packages: [
-            { id: 'pkg-1', name: 'الباقة البرونزية', dailyProfitPercent: 5 },
-            { id: 'pkg-2', name: 'الباقة الفضية', dailyProfitPercent: 7 },
-            { id: 'pkg-3', name: 'الباقة الذهبية', dailyProfitPercent: 10 },
+            { id: 'pkg-1', name: 'الباقة البرونزية', price: 100, dailyProfitPercent: 5 },
+            { id: 'pkg-2', name: 'الباقة الفضية', price: 500, dailyProfitPercent: 7 },
+            { id: 'pkg-3', name: 'الباقة الذهبية', price: 1000, dailyProfitPercent: 10 },
         ],
         transactions: [
             { id: generateId(), userId: user1Id, type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, amount: 1000, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), depositMethodId: 'dm-1' },
@@ -166,10 +166,9 @@ export const login = async (username: string, password?: string): Promise<User> 
 
 export const requestPasswordReset = async (username: string, whatsappNumber: string): Promise<void> => {
     await delay(500);
-    const user = DB.users.find(u => u.username === username);
+    const user = DB.users.find(u => u.username === username && u.phone === whatsappNumber);
     if (!user) {
-        console.log(`Password reset request for non-existent user: ${username}`);
-        return;
+        throw new Error('لم يتم العثور على مستخدم بهذا الاسم ورقم الهاتف.');
     }
     
     const newRequest: PasswordResetRequest = {
@@ -292,23 +291,7 @@ export const investInPackage = async (userId: string, packageId: string, amount:
         date: new Date().toISOString(),
     });
     
-    if (user.referredBy) {
-        const referrer = DB.users.find(u => u.id === user.referredBy);
-        // Bonus on first investment only
-        if (referrer && user.activeInvestments.length === 1) {
-             const bonus = amount * 0.05; // 5% bonus
-             referrer.profitBalance += bonus;
-             DB.transactions.unshift({
-                id: generateId(),
-                userId: referrer.id,
-                type: TransactionType.REFERRAL_BONUS,
-                status: TransactionStatus.COMPLETED,
-                amount: bonus,
-                date: new Date().toISOString(),
-             });
-        }
-    }
-
+    // Referral bonus logic moved to approveDeposit
     saveDB();
 };
 
@@ -414,6 +397,33 @@ export const approveDeposit = async (transactionId: string): Promise<void> => {
 
     transaction.status = TransactionStatus.COMPLETED;
     user.balance += transaction.amount;
+
+    // --- NEW REFERRAL BONUS LOGIC ---
+    if (user.referredBy) {
+        const referrer = DB.users.find(u => u.id === user.referredBy);
+        // Check if this is the user's first-ever completed deposit
+        const hasPreviousCompletedDeposits = DB.transactions.some(
+            t => t.userId === user.id && 
+                 t.type === TransactionType.DEPOSIT && 
+                 t.status === TransactionStatus.COMPLETED && 
+                 t.id !== transactionId
+        );
+
+        if (referrer && !hasPreviousCompletedDeposits) {
+             const bonus = transaction.amount * 0.05; // 5% bonus on first deposit
+             referrer.profitBalance += bonus;
+             DB.transactions.unshift({
+                id: generateId(),
+                userId: referrer.id,
+                type: TransactionType.REFERRAL_BONUS,
+                status: TransactionStatus.COMPLETED,
+                amount: bonus,
+                date: new Date().toISOString(),
+             });
+        }
+    }
+    // --- END OF NEW LOGIC ---
+
     saveDB();
 };
 
@@ -461,6 +471,7 @@ export const updatePackage = async (id: string, data: Omit<InvestmentPackage, 'i
     const pkg = DB.packages.find(p => p.id === id);
     if (pkg) {
         pkg.name = data.name;
+        pkg.price = data.price;
         pkg.dailyProfitPercent = data.dailyProfitPercent;
         saveDB();
     }
