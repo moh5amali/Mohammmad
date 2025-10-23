@@ -44,6 +44,27 @@ const getDefaultData = (): AppDB => {
 
 let DB: AppDB;
 
+const saveDB = () => {
+    try {
+        if (DB) {
+            localStorage.setItem(DB_KEY, JSON.stringify(DB));
+        }
+    } catch (e) {
+        console.error("Failed to save DB to localStorage", e);
+    }
+};
+
+const readDBFromStorage = () => {
+    try {
+        const data = localStorage.getItem(DB_KEY);
+        if (data) {
+            DB = JSON.parse(data);
+        }
+    } catch (e) {
+        console.error("Failed to read DB from storage", e);
+    }
+};
+
 const loadDB = () => {
     let dbData: AppDB;
     try {
@@ -82,35 +103,21 @@ const loadDB = () => {
     
     DB = dbData; 
 
-    if (needsSave) {
+    if (needsSave || !localStorage.getItem(DB_KEY)) {
         saveDB(); 
-    }
-};
-
-const saveDB = () => {
-    try {
-        if (DB) {
-            localStorage.setItem(DB_KEY, JSON.stringify(DB));
-        }
-    } catch (e) {
-        console.error("Failed to save DB to localStorage", e);
     }
 };
 
 loadDB();
 
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
 // --- Auth ---
 
 export const initializeData = () => {
-    if (!localStorage.getItem(DB_KEY)) {
-        saveDB();
-    }
-}
+    // This is now handled by the initial loadDB call.
+};
 
 export const register = async (userData: Pick<User, 'username' | 'name' | 'phone' | 'password'>, referredByCode?: string | null): Promise<User> => {
-    await delay(500);
+    readDBFromStorage();
     if (DB.users.some(u => u.username === userData.username)) throw new Error('اسم المستخدم مسجل بالفعل.');
 
     let referredBy: string | undefined = undefined;
@@ -147,7 +154,7 @@ export const register = async (userData: Pick<User, 'username' | 'name' | 'phone
 };
 
 export const login = async (username: string, password?: string): Promise<User> => {
-    await delay(500);
+    readDBFromStorage();
     const user = DB.users.find(u => u.username === username && u.password === password);
     if (!user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة.');
     
@@ -156,7 +163,7 @@ export const login = async (username: string, password?: string): Promise<User> 
 };
 
 export const requestPasswordReset = async (username: string, whatsappNumber: string): Promise<void> => {
-    await delay(500);
+    readDBFromStorage();
     const user = DB.users.find(u => u.username === username && u.phone === whatsappNumber);
     if (!user) {
         throw new Error('لم يتم العثور على مستخدم بهذا الاسم ورقم الهاتف.');
@@ -185,6 +192,7 @@ export const logout = () => {
 };
 
 export const getLoggedInUser = (): User | null => {
+    readDBFromStorage();
     const userId = localStorage.getItem(LOGGED_IN_USER_ID_KEY);
     if (!userId) return null;
     return DB.users.find(u => u.id === userId) || null;
@@ -238,12 +246,12 @@ const calculateDailyProfits = (user: User) => {
 // --- User Facing ---
 
 export const getDashboardData = async (userId: string): Promise<{ user: User, transactions: Transaction[] }> => {
-    await delay(300);
+    readDBFromStorage();
     const user = DB.users.find(u => u.id === userId);
     if (!user) throw new Error("User not found");
     
     calculateDailyProfits(user);
-    if(user.lastProfitCalculationDate) saveDB();
+    saveDB(); // Save unconditionally after potential profit calculations
 
     const transactions = DB.transactions
         .filter(t => t.userId === userId)
@@ -253,12 +261,12 @@ export const getDashboardData = async (userId: string): Promise<{ user: User, tr
 };
 
 export const getInvestmentPackages = async (): Promise<InvestmentPackage[]> => {
-    await delay(200);
+    readDBFromStorage();
     return [...DB.packages];
 };
 
 export const investInPackage = async (userId: string, packageId: string, amount: number): Promise<void> => {
-    await delay(500);
+    readDBFromStorage();
     const user = DB.users.find(u => u.id === userId);
     const pkg = DB.packages.find(p => p.id === packageId);
     if (!user || !pkg) throw new Error("User or Package not found.");
@@ -282,17 +290,16 @@ export const investInPackage = async (userId: string, packageId: string, amount:
         date: new Date().toISOString(),
     });
     
-    // Referral bonus logic moved to approveDeposit
     saveDB();
 };
 
 export const getDepositMethods = async (): Promise<DepositMethod[]> => {
-    await delay(100);
+    readDBFromStorage();
     return [...DB.depositMethods];
 };
 
 export const requestDeposit = async (userId: string, amount: number, proof: string, methodId: string): Promise<void> => {
-    await delay(500);
+    readDBFromStorage();
     DB.transactions.unshift({
         id: generateId(),
         userId,
@@ -307,12 +314,12 @@ export const requestDeposit = async (userId: string, amount: number, proof: stri
 };
 
 export const getWithdrawalMethods = async (): Promise<WithdrawalMethod[]> => {
-    await delay(100);
+    readDBFromStorage();
     return [...DB.withdrawalMethods];
 };
 
 export const requestWithdrawal = async (userId: string, amount: number, walletAddress: string, methodId: string): Promise<void> => {
-    await delay(500);
+    readDBFromStorage();
     const user = DB.users.find(u => u.id === userId);
     if (!user) throw new Error("User not found.");
     if (amount < 10) throw new Error("Minimum withdrawal is $10.");
@@ -339,7 +346,7 @@ export const requestWithdrawal = async (userId: string, amount: number, walletAd
 // --- Admin Facing ---
 
 export const getAdminDashboardData = async () => {
-    await delay(400);
+    readDBFromStorage();
     const totalUsers = DB.users.filter(u => u.role === UserRole.USER).length;
     const totalDeposits = DB.transactions.filter(t => t.type === TransactionType.DEPOSIT && t.status === TransactionStatus.COMPLETED).reduce((sum, t) => sum + t.amount, 0);
     const totalWithdrawals = DB.transactions.filter(t => t.type === TransactionType.WITHDRAWAL && t.status === TransactionStatus.COMPLETED).reduce((sum, t) => sum + t.amount, 0);
@@ -348,24 +355,24 @@ export const getAdminDashboardData = async () => {
 };
 
 export const getUsers = async (): Promise<User[]> => {
-    await delay(100);
+    readDBFromStorage();
     return [...DB.users];
 };
 
 export const getTransactions = async (): Promise<Transaction[]> => {
-    await delay(200);
+    readDBFromStorage();
     return [...DB.transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
 export const getPasswordResetRequests = async (): Promise<PasswordResetRequest[]> => {
-    await delay(200);
+    readDBFromStorage();
     return [...DB.passwordResetRequests]
         .filter(r => r.status === 'PENDING')
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
 export const resolvePasswordResetRequest = async (requestId: string, newPassword?: string): Promise<void> => {
-    await delay(300);
+    readDBFromStorage();
     const request = DB.passwordResetRequests.find(r => r.id === requestId);
     if (request) {
         if (newPassword && newPassword.trim() !== '') {
@@ -380,7 +387,7 @@ export const resolvePasswordResetRequest = async (requestId: string, newPassword
 };
 
 export const approveDeposit = async (transactionId: string): Promise<void> => {
-    await delay(300);
+    readDBFromStorage();
     const transaction = DB.transactions.find(t => t.id === transactionId);
     if (!transaction || transaction.type !== TransactionType.DEPOSIT) throw new Error("Transaction not found or not a deposit.");
     const user = DB.users.find(u => u.id === transaction.userId);
@@ -389,10 +396,8 @@ export const approveDeposit = async (transactionId: string): Promise<void> => {
     transaction.status = TransactionStatus.COMPLETED;
     user.balance += transaction.amount;
 
-    // --- NEW REFERRAL BONUS LOGIC ---
     if (user.referredBy) {
         const referrer = DB.users.find(u => u.id === user.referredBy);
-        // Check if this is the user's first-ever completed deposit
         const hasPreviousCompletedDeposits = DB.transactions.some(
             t => t.userId === user.id && 
                  t.type === TransactionType.DEPOSIT && 
@@ -401,7 +406,7 @@ export const approveDeposit = async (transactionId: string): Promise<void> => {
         );
 
         if (referrer && !hasPreviousCompletedDeposits) {
-             const bonus = transaction.amount * 0.05; // 5% bonus on first deposit
+             const bonus = transaction.amount * 0.05;
              referrer.profitBalance += bonus;
              DB.transactions.unshift({
                 id: generateId(),
@@ -413,13 +418,12 @@ export const approveDeposit = async (transactionId: string): Promise<void> => {
              });
         }
     }
-    // --- END OF NEW LOGIC ---
-
+    
     saveDB();
 };
 
 export const rejectDeposit = async (transactionId: string): Promise<void> => {
-    await delay(300);
+    readDBFromStorage();
     const transaction = DB.transactions.find(t => t.id === transactionId);
     if (!transaction) throw new Error("Transaction not found.");
     transaction.status = TransactionStatus.REJECTED;
@@ -427,7 +431,7 @@ export const rejectDeposit = async (transactionId: string): Promise<void> => {
 };
 
 export const approveWithdrawal = async (transactionId: string): Promise<void> => {
-    await delay(300);
+    readDBFromStorage();
     const transaction = DB.transactions.find(t => t.id === transactionId);
     if (!transaction || transaction.type !== TransactionType.WITHDRAWAL) throw new Error("Transaction not found or not a withdrawal.");
     const user = DB.users.find(u => u.id === transaction.userId);
@@ -439,26 +443,25 @@ export const approveWithdrawal = async (transactionId: string): Promise<void> =>
 };
 
 export const rejectWithdrawal = async (transactionId: string): Promise<void> => {
-    await delay(300);
+    readDBFromStorage();
     const transaction = DB.transactions.find(t => t.id === transactionId);
     if (!transaction) throw new Error("Transaction not found.");
     const user = DB.users.find(u => u.id === transaction.userId);
     if (!user) throw new Error("User not found.");
     
     transaction.status = TransactionStatus.REJECTED;
-    // Refund the amount to user's profit balance
     user.profitBalance += transaction.amount;
     saveDB();
 };
 
 export const addPackage = async (pkg: Omit<InvestmentPackage, 'id'>): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     DB.packages.push({ ...pkg, id: generateId() });
     saveDB();
 };
 
 export const updatePackage = async (id: string, data: Omit<InvestmentPackage, 'id'>): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     const pkg = DB.packages.find(p => p.id === id);
     if (pkg) {
         pkg.name = data.name;
@@ -469,19 +472,19 @@ export const updatePackage = async (id: string, data: Omit<InvestmentPackage, 'i
 };
 
 export const deletePackage = async (packageId: string): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     DB.packages = DB.packages.filter(p => p.id !== packageId);
     saveDB();
 };
 
 export const addDepositMethod = async (method: Omit<DepositMethod, 'id'>): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     DB.depositMethods.push({ ...method, id: generateId() });
     saveDB();
 };
 
 export const updateDepositMethod = async (id: string, data: Omit<DepositMethod, 'id'>): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     const method = DB.depositMethods.find(m => m.id === id);
     if (method) {
         method.name = data.name;
@@ -491,19 +494,19 @@ export const updateDepositMethod = async (id: string, data: Omit<DepositMethod, 
 };
 
 export const deleteDepositMethod = async (methodId: string): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     DB.depositMethods = DB.depositMethods.filter(m => m.id !== methodId);
     saveDB();
 };
 
 export const addWithdrawalMethod = async (method: Omit<WithdrawalMethod, 'id'>): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     DB.withdrawalMethods.push({ ...method, id: generateId() });
     saveDB();
 };
 
 export const updateWithdrawalMethod = async (id: string, data: Omit<WithdrawalMethod, 'id'>): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     const method = DB.withdrawalMethods.find(m => m.id === id);
     if (method) {
         method.name = data.name;
@@ -512,7 +515,7 @@ export const updateWithdrawalMethod = async (id: string, data: Omit<WithdrawalMe
 };
 
 export const deleteWithdrawalMethod = async (methodId: string): Promise<void> => {
-    await delay(200);
+    readDBFromStorage();
     DB.withdrawalMethods = DB.withdrawalMethods.filter(m => m.id !== methodId);
     saveDB();
 };
