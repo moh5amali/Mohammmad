@@ -414,7 +414,7 @@ export const UserPortal: React.FC = () => {
             </div>
 
             <div>
-                {activeTab === 'dashboard' && <UserDashboard user={user} onAction={forceRefresh}/>}
+                {activeTab === 'dashboard' && <UserDashboard user={user} onAction={forceRefresh} key={refreshKey} />}
                 {activeTab === 'plans' && <InvestmentPlans user={user} onInvest={forceRefresh} />}
                 {activeTab === 'referrals' && <ReferralPage user={user} />}
             </div>
