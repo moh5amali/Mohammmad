@@ -16,38 +16,29 @@ interface AppDB {
 }
 
 const getDefaultData = (): AppDB => {
-    const user1Id = 'user-1';
-    const user2Id = 'user-2';
     const adminId = 'admin-1';
     
     return {
         users: [
-            { id: adminId, username: 'm', name: 'Admin', password: '1029', role: UserRole.ADMIN, balance: 0, profitBalance: 0, investedAmount: 0, referralCode: 'ADMINREF', referredUserIds: [], activeInvestments: [] },
-            { id: user1Id, username: 'ahmedali', name: 'أحمد علي', password: 'password123', phone: '123456789', role: UserRole.USER, balance: 500, profitBalance: 250, investedAmount: 1000, referralCode: 'AHMED123', referredUserIds: [user2Id], activeInvestments: [{ packageId: 'pkg-1', amount: 1000, startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() }] },
-            { id: user2Id, username: 'fatima', name: 'فاطمة الزهراء', password: 'password123', phone: '987654321', role: UserRole.USER, balance: 200, profitBalance: 50, investedAmount: 500, referralCode: 'FATIMA456', referredBy: user1Id, referredUserIds: [], activeInvestments: [{ packageId: 'pkg-1', amount: 500, startDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }] },
+            { 
+                id: adminId, 
+                username: 'm', 
+                name: 'Admin', 
+                password: '1029', 
+                role: UserRole.ADMIN, 
+                balance: 0, 
+                profitBalance: 0, 
+                investedAmount: 0, 
+                referralCode: 'ADMINREF', 
+                referredUserIds: [], 
+                activeInvestments: [] 
+            },
         ],
-        packages: [
-            { id: 'pkg-1', name: 'الباقة البرونزية', price: 100, dailyProfitPercent: 5 },
-            { id: 'pkg-2', name: 'الباقة الفضية', price: 500, dailyProfitPercent: 7 },
-            { id: 'pkg-3', name: 'الباقة الذهبية', price: 1000, dailyProfitPercent: 10 },
-        ],
-        transactions: [
-            { id: generateId(), userId: user1Id, type: TransactionType.DEPOSIT, status: TransactionStatus.COMPLETED, amount: 1000, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), depositMethodId: 'dm-1' },
-            { id: generateId(), userId: user1Id, type: TransactionType.INVESTMENT, status: TransactionStatus.COMPLETED, amount: 1000, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-            { id: generateId(), userId: user1Id, type: TransactionType.PROFIT, status: TransactionStatus.COMPLETED, amount: 250, date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-            { id: generateId(), userId: user2Id, type: TransactionType.DEPOSIT, status: TransactionStatus.PENDING, amount: 500, date: new Date().toISOString(), depositMethodId: 'dm-1', proof: 'https://via.placeholder.com/300' },
-            { id: generateId(), userId: user1Id, type: TransactionType.WITHDRAWAL, status: TransactionStatus.PENDING, amount: 100, date: new Date().toISOString(), withdrawalMethodId: 'wm-1', walletAddress: 'TABC123XYZ' },
-        ],
-        depositMethods: [
-            { id: 'dm-1', name: 'USDT (TRC20)', address: 'TX7d5sA1c2B3d4E5f6G7h8I9j0K1l2M3n4o' },
-        ],
-        withdrawalMethods: [
-            { id: 'wm-1', name: 'USDT (TRC20)'},
-            { id: 'wm-2', name: 'Bank Transfer'},
-        ],
-        passwordResetRequests: [
-             { id: generateId(), userId: user2Id, username: 'fatima', whatsappNumber: '9876543210', status: 'PENDING', date: new Date().toISOString(), currentPassword: 'password123' }
-        ]
+        packages: [],
+        transactions: [],
+        depositMethods: [],
+        withdrawalMethods: [],
+        passwordResetRequests: []
     };
 };
 
