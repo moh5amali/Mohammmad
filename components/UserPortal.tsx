@@ -196,8 +196,8 @@ const ReferralPage: React.FC<{ user: User | null }> = ({ user }) => {
 
 const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: string, onDepositSuccess: () => void }> = ({ isOpen, onClose, userId, onDepositSuccess }) => {
     const [amount, setAmount] = useState(100);
-    const [proof, setProof] = useState<File | null>(null);
-    const [proofPreview, setProofPreview] = useState<string | null>(null);
+    const [proof, setProof] = useState<string | null>(null);
+    const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [methods, setMethods] = useState<DepositMethod[]>([]);
@@ -210,21 +210,65 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
             setSelectedMethod(null);
             setAmount(100);
             setProof(null);
-            setProofPreview(null);
             setError('');
             setCopySuccess('');
+            setIsProcessingImage(false);
         }
     }, [isOpen]);
+
+    const resizeImage = (file: File, maxWidth: number, maxHeight: number, quality: number): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                if (!event.target?.result) return reject(new Error("FileReader error"));
+                const img = new Image();
+                img.src = event.target.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let { width, height } = img;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width *= maxHeight / height;
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) return reject(new Error('Could not get canvas context'));
+                    
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = (error) => reject(error);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    };
     
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setProof(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setProofPreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            setError('');
+            setProof(null);
+            setIsProcessingImage(true);
+            try {
+                const resizedDataUrl = await resizeImage(file, 800, 800, 0.7);
+                setProof(resizedDataUrl);
+            } catch (err) {
+                console.error(err);
+                setError('فشل في معالجة الصورة. يرجى محاولة صورة أخرى.');
+            } finally {
+                setIsProcessingImage(false);
+            }
         }
     };
 
@@ -236,13 +280,9 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
         setError('');
         setIsLoading(true);
         try {
-            const reader = new FileReader();
-            reader.readAsDataURL(proof);
-            reader.onload = async () => {
-                await api.requestDeposit(userId, amount, reader.result as string, selectedMethod.id);
-                onDepositSuccess();
-                onClose();
-            };
+            await api.requestDeposit(userId, amount, proof, selectedMethod.id);
+            onDepositSuccess();
+            onClose();
         } catch (e: any) {
             setError(e.message || 'حدث خطأ ما.');
         } finally {
@@ -292,13 +332,14 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-text-main">لقطة شاشة للمعاملة</label>
-                        <input type="file" accept="image/*" onChange={handleFileChange} className="w-full text-sm text-text-secondary file:ml-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark cursor-pointer mt-1"/>
+                        <input type="file" accept="image/*" onChange={handleFileChange} disabled={isProcessingImage} className="w-full text-sm text-text-secondary file:ml-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark cursor-pointer mt-1 disabled:opacity-50"/>
                     </div>
-                    {proofPreview && <img src={proofPreview} alt="Proof preview" className="max-h-40 rounded-md mx-auto"/>}
+                    {isProcessingImage && <p className="text-amber-400 text-sm text-center">جاري معالجة الصورة...</p>}
+                    {proof && <img src={proof} alt="Proof preview" className="max-h-40 rounded-md mx-auto"/>}
                     {error && <p className="text-red-400 text-sm">{error}</p>}
                     <div className="flex justify-between gap-3">
                         <Button variant="secondary" onClick={() => setSelectedMethod(null)}>رجوع</Button>
-                        <Button onClick={handleSubmit} isLoading={isLoading} disabled={!proof}>إرسال طلب الإيداع</Button>
+                        <Button onClick={handleSubmit} isLoading={isLoading} disabled={!proof || isProcessingImage}>إرسال طلب الإيداع</Button>
                     </div>
                 </div>
             )}
