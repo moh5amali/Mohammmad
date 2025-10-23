@@ -420,24 +420,19 @@ const WithdrawModal: React.FC<{ isOpen: boolean; onClose: () => void; user: User
     );
 }
 
-export const UserPortal: React.FC = () => {
+// FIX: Refactor UserPortal to accept user object and a refresh handler via props.
+// This resolves the error from trying to call a non-existent `getLoggedInUser` function
+// and establishes a correct parent-to-child data flow.
+export const UserPortal: React.FC<{ user: User; onRefresh: () => void; }> = ({ user, onRefresh }) => {
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [user, setUser] = useState<User | null>(null);
-    const [refreshKey, setRefreshKey] = useState(0);
 
-    useEffect(() => {
-        setUser(api.getLoggedInUser());
-    }, [refreshKey]);
-    
-    const forceRefresh = () => setRefreshKey(k => k + 1);
+    const forceRefresh = () => onRefresh();
 
     const tabs = [
         { id: 'dashboard', label: 'لوحة التحكم' },
         { id: 'plans', label: 'خطط الاستثمار' },
         { id: 'referrals', label: 'الإحالات' },
     ];
-
-    if (!user) return <div className="text-center p-10 text-text-main">جاري تحميل المستخدم...</div>;
 
     return (
         <div>
@@ -455,7 +450,7 @@ export const UserPortal: React.FC = () => {
             </div>
 
             <div>
-                {activeTab === 'dashboard' && <UserDashboard user={user} onAction={forceRefresh} key={refreshKey} />}
+                {activeTab === 'dashboard' && <UserDashboard user={user} onAction={forceRefresh} />}
                 {activeTab === 'plans' && <InvestmentPlans user={user} onInvest={forceRefresh} />}
                 {activeTab === 'referrals' && <ReferralPage user={user} />}
             </div>

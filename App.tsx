@@ -25,30 +25,19 @@ const App: React.FC = () => {
     const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
-    const [syncKey, setSyncKey] = useState(0);
 
-    // Effect for cross-tab synchronization
+    // Effect for Firebase auth state listener
     useEffect(() => {
-        const handleStorageChange = (event: StorageEvent) => {
-            if (event.key === 'investmentAppDB' || event.key === 'loggedInUserId') {
-                // Use a timestamp to ensure a unique key every time, forcing a re-render
-                setSyncKey(Date.now());
-            }
-        };
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
-    }, []);
-
-    // Effect for initial load and handling sync updates
-    useEffect(() => {
-        const checkUser = () => {
-            setIsLoading(true);
-            const user = api.getLoggedInUser();
+        setIsLoading(true);
+        const unsubscribe = api.onAuthChange((user) => {
             setLoggedInUser(user);
             setIsLoading(false);
-        };
-        checkUser();
-    }, [syncKey]);
+        });
+
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
+    }, []);
+
 
     // Effect for one-time setup on initial load (referral code)
     useEffect(() => {
@@ -65,9 +54,21 @@ const App: React.FC = () => {
             console.error("Could not parse referral code from URL", e);
         }
     }, []);
+    
+    // FIX: Add a function to refresh the logged-in user's data from the backend.
+    const refreshUser = async () => {
+        if (loggedInUser) {
+            try {
+                const data = await api.getDashboardData(loggedInUser.id);
+                setLoggedInUser(data.user);
+            } catch (e) {
+                console.error("Failed to refresh user", e);
+            }
+        }
+    };
 
-    const handleLogout = () => {
-        api.logout();
+    const handleLogout = async () => {
+        await api.logout();
         setLoggedInUser(null);
         setAuthView('login');
     };
@@ -82,7 +83,7 @@ const App: React.FC = () => {
 
         try {
             const user = await api.login(username, password);
-            setLoggedInUser(user);
+            // setLoggedInUser is handled by onAuthChange listener
         } catch (err: any) {
             setError(err.message);
         }
@@ -132,7 +133,8 @@ const App: React.FC = () => {
     if (loggedInUser) {
         return (
             <Layout userRole={loggedInUser.role} onLogout={handleLogout}>
-                {loggedInUser.role === UserRole.ADMIN ? <AdminPortal key={syncKey} /> : <UserPortal key={syncKey} />}
+                {/* FIX: Pass user data and refresh handler to UserPortal. */}
+                {loggedInUser.role === UserRole.ADMIN ? <AdminPortal /> : <UserPortal user={loggedInUser} onRefresh={refreshUser} />}
             </Layout>
         );
     }
