@@ -25,31 +25,45 @@ const App: React.FC = () => {
     const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
+    const [syncKey, setSyncKey] = useState(0);
 
+    // Effect for cross-tab synchronization
     useEffect(() => {
-        const checkUser = async () => {
+        const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === 'investmentAppDB' || event.key === 'loggedInUserId') {
+                // Use a timestamp to ensure a unique key every time, forcing a re-render
+                setSyncKey(Date.now());
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
+    // Effect for initial load and handling sync updates
+    useEffect(() => {
+        const checkUser = () => {
             setIsLoading(true);
             const user = api.getLoggedInUser();
             setLoggedInUser(user);
             setIsLoading(false);
         };
         checkUser();
+    }, [syncKey]);
 
-        // Capture referral code from URL hash
+    // Effect for one-time setup on initial load (referral code)
+    useEffect(() => {
         try {
             if (window.location.hash.includes('?ref=')) {
                 const params = new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')));
                 const refCode = params.get('ref');
                 if (refCode) {
                     localStorage.setItem('referralCode', refCode);
-                    // Optionally switch to register view if referral code is present
                     setAuthView('register');
                 }
             }
         } catch (e) {
             console.error("Could not parse referral code from URL", e);
         }
-
     }, []);
 
     const handleLogout = () => {
@@ -118,7 +132,7 @@ const App: React.FC = () => {
     if (loggedInUser) {
         return (
             <Layout userRole={loggedInUser.role} onLogout={handleLogout}>
-                {loggedInUser.role === UserRole.ADMIN ? <AdminPortal /> : <UserPortal />}
+                {loggedInUser.role === UserRole.ADMIN ? <AdminPortal key={syncKey} /> : <UserPortal key={syncKey} />}
             </Layout>
         );
     }

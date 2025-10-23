@@ -82,8 +82,8 @@ const UserDashboard: React.FC<{ user: User | null; onAction: () => void }> = ({ 
                 </div>
             </Card>
 
-            <DepositModal isOpen={isDepositModalOpen} onClose={() => setDepositModalOpen(false)} userId={user!.id} onDepositSuccess={() => { onAction(); fetchDashboardData(); }}/>
-            {user && <WithdrawModal isOpen={isWithdrawModalOpen} onClose={() => setWithdrawModalOpen(false)} user={user} onWithdrawSuccess={() => { onAction(); fetchDashboardData(); }}/>}
+            <DepositModal isOpen={isDepositModalOpen} onClose={() => setDepositModalOpen(false)} userId={user!.id} onDepositSuccess={onAction}/>
+            {user && <WithdrawModal isOpen={isWithdrawModalOpen} onClose={() => setWithdrawModalOpen(false)} user={user} onWithdrawSuccess={onAction}/>}
         </div>
     );
 };
