@@ -261,7 +261,7 @@ const DepositModal: React.FC<{ isOpen: boolean, onClose: () => void, userId: str
             setProof(null);
             setIsProcessingImage(true);
             try {
-                const resizedDataUrl = await resizeImage(file, 800, 800, 0.7);
+                const resizedDataUrl = await resizeImage(file, 600, 600, 0.6);
                 setProof(resizedDataUrl);
             } catch (err) {
                 console.error(err);
